@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  SUSPENDED
+  BANNED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+model User {
+  // Primary fields
+  id          String     @id @default(uuid())
+  email       String     @unique
+  password    String
+  
+  // Personal information
+  firstName   String     @map("first_name")
+  lastName    String     @map("last_name")
+  phoneNumber String?    @map("phone_number")
+  address     String?
+  birthday    DateTime?
+  gender      Gender?
+  avatarUrl   String?    @map("avatar_url")
+  
+  // Status and verification
+  status        UserStatus @default(PENDING)
+  emailVerified Boolean    @default(false) @map("email_verified")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  
+  // Security fields
+  lastLoginAt   DateTime? @map("last_login_at")
+  passwordResetToken String? @map("password_reset_token")
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by")
+  updatedBy   String?    @map("updated_by")
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by")
+
+  // Relations for audit trail
+  createdByUser User? @relation("UserCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("UserUpdatedBy", fields: [updatedBy], references: [id])
+  deletedByUser User? @relation("UserDeletedBy", fields: [deletedBy], references: [id])
+  
+  // Reverse relations
+  usersCreated User[] @relation("UserCreatedBy")
+  usersUpdated User[] @relation("UserUpdatedBy")
+  usersDeleted User[] @relation("UserDeletedBy")
+
+  @@map("users")
+  @@index([email])
+  @@index([status])
+  @@index([emailVerified])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([phoneNumber])
+  @@index([firstName, lastName])
+}
