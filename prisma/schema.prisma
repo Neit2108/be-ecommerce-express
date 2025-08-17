@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// User management
 enum UserStatus {
   ACTIVE
   INACTIVE
@@ -27,11 +28,12 @@ model User {
   id          String     @id @default(uuid())
   email       String     @unique
   password    String
+  identityCard String    @unique
   
   // Personal information
   firstName   String     @map("first_name")
   lastName    String     @map("last_name")
-  phoneNumber String?    @map("phone_number")
+  phoneNumber String?    @map("phone_number") @unique
   address     String?
   birthday    DateTime?
   gender      Gender?
@@ -57,15 +59,8 @@ model User {
   deletedAt   DateTime?  @map("deleted_at")
   deletedBy   String?    @map("deleted_by")
 
-  // Relations for audit trail
-  createdByUser User? @relation("UserCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser User? @relation("UserUpdatedBy", fields: [updatedBy], references: [id])
-  deletedByUser User? @relation("UserDeletedBy", fields: [deletedBy], references: [id])
-  
-  // Reverse relations
-  usersCreated User[] @relation("UserCreatedBy")
-  usersUpdated User[] @relation("UserUpdatedBy")
-  usersDeleted User[] @relation("UserDeletedBy")
+  // relation
+  shop Shop? @relation("ShopOwner")
 
   @@map("users")
   @@index([email])
@@ -75,4 +70,312 @@ model User {
   @@index([deletedAt])
   @@index([phoneNumber])
   @@index([firstName, lastName])
+}
+
+// Shop Management
+enum ShopStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_APPROVAL
+  SUSPENDED
+  CLOSED
+}
+
+model Shop {
+  // Primary fields
+  id      String     @id @default(uuid())
+  ownerId String     @map("owner_id") @unique
+  name    String
+  status  ShopStatus @default(PENDING_APPROVAL)
+  
+  // Address fields 
+  street      String?
+  ward        String?
+  district       String?
+  city  String?  
+  country     String @default("Vietnamese")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by") // User ID who created
+  updatedBy   String?    @map("updated_by") // User ID who last updated
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  
+  // Relations
+  owner    User       @relation("ShopOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  products Product[] // 1 shop có nhiều products
+  
+  @@map("shops")
+  @@index([ownerId])
+  @@index([status])
+  @@index([name])
+  @@index([city])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+// Product Management
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  OUT_OF_STOCK
+  DISCONTINUED
+}
+
+model Product {
+  // Primary fields
+  id            String        @id @default(uuid())
+  shopId        String        @map("shop_id")
+  name          String
+  averageRating Float         @default(0) @map("average_rating")
+  reviewCount   Int           @default(0) @map("review_count")
+  status        ProductStatus @default(DRAFT)
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by") // User ID who created
+  updatedBy   String?    @map("updated_by") // User ID who last updated
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  
+  // Product relations
+  shop     Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  variants ProductVariant[]
+  images   ProductImage[]
+  options  ProductOption[]
+  categories ProductCategory[]
+  
+  @@map("products")
+  @@index([shopId])
+  @@index([status])
+  @@index([name])
+  @@index([averageRating])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model ProductVariant {
+  // Primary fields
+  id          String        @id @default(uuid())
+  productId   String        @map("product_id")
+  sku         String        @unique
+  name        String
+  value       String
+  price       Decimal       @db.Decimal(10, 2)
+  currency    String        @default("VND") // For Money value object
+  status      ProductStatus @map("product_status") @default(DRAFT)
+  description String?
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by") // User ID who created
+  updatedBy   String?    @map("updated_by") // User ID who last updated
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  
+  // Product variant relations
+  product      Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  images       ProductImage[]
+  optionValues ProductVariantOptionValue[]
+  
+  @@map("product_variants")
+  @@index([productId])
+  @@index([sku])
+  @@index([status])
+  @@index([price])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model ProductImage {
+  // Primary fields
+  id          String  @id @default(uuid())
+  productId   String  @map("product_id")
+  variantId   String? @map("variant_id")
+  imageUrl    String  @map("image_url")
+  isPrimary   Boolean @default(false) @map("is_primary")
+  sortOrder   Int     @default(0) @map("sort_order")
+  description String?
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by") // User ID who created
+  updatedBy   String?    @map("updated_by") // User ID who last updated
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  
+  // Product image relations
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  
+  @@map("product_images")
+  @@index([productId])
+  @@index([variantId])
+  @@index([isPrimary])
+  @@index([sortOrder])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model ProductOption {
+  // Primary fields
+  id        String @id @default(uuid())
+  productId String @map("product_id")
+  name      String
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by") // User ID who created
+  updatedBy   String?    @map("updated_by") // User ID who last updated
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  
+  // Product option relations
+  product                   Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values                    ProductOptionValue[]
+  productVariantOptionValues ProductVariantOptionValue[]
+  
+  @@map("product_options")
+  @@index([productId])
+  @@index([name])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model ProductOptionValue {
+  // Primary fields
+  id              String @id @default(uuid())
+  productOptionId String @map("product_option_id")
+  value           String
+  sortOrder       Int    @default(0) @map("sort_order")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by") // User ID who created
+  updatedBy   String?    @map("updated_by") // User ID who last updated
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  
+  // Product option value relations
+  productOption              ProductOption               @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
+  productVariantOptionValues ProductVariantOptionValue[]
+  
+  @@map("product_option_values")
+  @@index([productOptionId])
+  @@index([sortOrder])
+  @@index([value])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model ProductVariantOptionValue {
+  // Primary fields
+  id                   String @id @default(uuid())
+  productVariantId     String @map("product_variant_id")
+  productOptionId      String @map("product_option_id")
+  productOptionValueId String @map("product_option_value_id")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by") // User ID who created
+  updatedBy   String?    @map("updated_by") // User ID who last updated
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  
+  // Many-to-many relation fields
+  productVariant     ProductVariant     @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  productOption      ProductOption      @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
+  productOptionValue ProductOptionValue @relation(fields: [productOptionValueId], references: [id], onDelete: Cascade)
+  
+  @@map("product_variant_option_values")
+  @@unique([productVariantId, productOptionId])
+  @@index([productVariantId])
+  @@index([productOptionId])
+  @@index([productOptionValueId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+// Category Management
+model Category {
+  // Primary fields
+  id               String  @id @default(uuid())
+  name             String
+  description      String  @default("")
+  parentCategoryId String? @map("parent_category_id")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by") // User ID who created
+  updatedBy   String?    @map("updated_by") // User ID who last updated
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  
+  // Self-referencing relations
+  parentCategory Category?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  childCategories Category[] @relation("CategoryHierarchy")
+  
+  // Many-to-many relation with products
+  products ProductCategory[]
+  
+  @@map("categories")
+  @@index([name])
+  @@index([parentCategoryId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+// many to many product and category
+model ProductCategory {
+  // Primary fields
+  id         String @id @default(uuid())
+  productId  String @map("product_id")
+  categoryId String @map("category_id")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by") // User ID who created
+  updatedBy   String?    @map("updated_by") // User ID who last updated
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  
+  // Relations
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  @@map("product_categories")
+  @@unique([productId, categoryId])
+  @@index([productId])
+  @@index([categoryId])
+  @@index([createdAt])
+  @@index([deletedAt])
 }

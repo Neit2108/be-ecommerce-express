@@ -1,5 +1,5 @@
-import { User, Prisma } from '@prisma/client';
-import { IAuditable, IDeletable, UserStatus, Gender, PaginationParams } from './common';
+import { User, Prisma ,UserStatus, Gender} from '@prisma/client';
+import { IAuditable, IDeletable, PaginationParams } from './common';
 
 // User without sensitive data
 export interface UserResponse extends Omit<User, 'password'> {}
@@ -17,8 +17,7 @@ export interface CreateUserInput {
   address?: string;
   birthday?: Date;
   gender?: Gender;
-  avatarUrl?: string;
-  status?: UserStatus;
+  status: UserStatus;
 }
 
 // Update user input
@@ -34,18 +33,12 @@ export interface UpdateUserInput {
   status?: UserStatus;
 }
 
-// Update password input
-export interface UpdatePasswordInput {
-  currentPassword: string;
-  newPassword: string;
-}
-
 // User search filters
 export interface UserSearchFilters extends PaginationParams {
   search?: string;
   status?: UserStatus;
   gender?: Gender;
-  ageFrom?: number;
+  ageFrom?: number ;
   ageTo?: number;
   createdFrom?: Date;
   createdTo?: Date;
@@ -61,12 +54,6 @@ export interface UserStatistics {
   createdThisMonth: number;
   createdThisYear: number;
   averageAge?: number;
-}
-
-// Login input
-export interface LoginInput {
-  email: string;
-  password: string;
 }
 
 // User query options

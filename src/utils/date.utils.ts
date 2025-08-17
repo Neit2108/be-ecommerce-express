@@ -38,6 +38,11 @@ export class DateUtils {
     return dayjs(date).subtract(days, 'day').toDate();
   }
 
+  static subtractYears(date: Date, years: number): Date {
+    
+    return dayjs(date).subtract(years, 'year').toDate();
+  }
+
   static calculateAge(birthday: Date): number {
     return dayjs().diff(dayjs(birthday), 'year');
   }

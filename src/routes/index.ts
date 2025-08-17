@@ -1,0 +1,24 @@
+// src/routes/index.ts
+import { Router } from 'express';
+import authRoutes from './auth.routes';
+import healthRoutes from './health.routes';
+import userRoutes from './user.routes';
+
+const router = Router();
+
+router.get('/', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      message: 'Express.js + Prisma + JWT Authentication API',
+      version: '1.0.0',
+      endpoints: { auth: '/api/auth', health: '/health' },
+    },
+  });
+});
+
+router.use('/api/auth', authRoutes);
+router.use('/api/users', userRoutes);
+router.use('/health', healthRoutes);
+
+export default router;
