@@ -1,5 +1,6 @@
-import { User } from '@prisma/client';
+import { User , UserStatus, Gender} from '@prisma/client';
 
+// Register input
 export interface RegisterInput {
   email: string;
   password: string;
@@ -8,14 +9,16 @@ export interface RegisterInput {
   phoneNumber?: string;
   address?: string;
   birthday?: Date;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
+  gender?: Gender;
 }
 
+// Login input  
 export interface LoginInput {
   email: string;
   password: string;
 }
 
+// Auth response
 export interface AuthResponse {
   user: Omit<User, 'password'>;
   accessToken: string;
@@ -23,14 +26,16 @@ export interface AuthResponse {
   expiresIn: number;
 }
 
+// JWT payload for access token
 export interface JwtPayload {
   userId: string;
   email: string;
-  status: string;
+  status: UserStatus;
   iat?: number;
   exp?: number;
 }
 
+// JWT payload for refresh token
 export interface RefreshTokenPayload {
   userId: string;
   type: 'refresh';
@@ -38,15 +43,26 @@ export interface RefreshTokenPayload {
   exp?: number;
 }
 
+// JWT payload for password reset token
+export interface PasswordResetTokenPayload {
+  userId: string;
+  type: 'password_reset';
+  iat?: number;
+  exp?: number;
+}
+
+// Password reset request input
 export interface PasswordResetInput {
   email: string;
 }
 
+// Password reset confirmation input
 export interface PasswordResetConfirmInput {
   token: string;
   newPassword: string;
 }
 
+// Change password input
 export interface ChangePasswordInput {
   currentPassword: string;
   newPassword: string;

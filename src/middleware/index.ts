@@ -33,9 +33,6 @@ export const applyBasicMiddleware = (app: Application): void => {
   // Security middleware
   app.use(helmet(helmetOptions));
 
-  // CORS middleware
-  app.use(cors(corsOptions));
-
   // Body parser middleware
   app.use(express.json({ 
     limit: process.env.JSON_LIMIT || '10mb',
@@ -56,5 +53,5 @@ export const applyBasicMiddleware = (app: Application): void => {
     next();
   });
 
-  console.log('✅ Basic middleware applied successfully');
+  console.log('✅ Middleware cơ bản đã chạy thành công');
 };

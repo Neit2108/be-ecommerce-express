@@ -1,9 +1,10 @@
-import { PrismaClient, User } from '@prisma/client';
+import { PrismaClient, User, UserStatus } from '@prisma/client';
 import { prisma } from '../config/prisma';
 import { redis } from '../config/redis';
 import { PasswordUtils } from '../utils/password.utils';
 import { JwtUtils } from '../utils/jwt.utils';
 import { PrismaErrorHandler } from '../errors/PrismaErrorHandler';
+import { userService } from '../config/container';
 import {
   RegisterInput,
   LoginInput,
@@ -12,7 +13,6 @@ import {
   PasswordResetInput,
   PasswordResetConfirmInput,
 } from '../types/auth.types';
-import { UserStatus } from '../types/common';
 import {
   EmailExistsError,
   PhoneExistsError,
@@ -24,6 +24,7 @@ import {
   DatabaseError,
   ExternalServiceError,
 } from '../errors/AppError';
+import { CreateUserInput } from '../types/user.types';
 
 export class AuthService {
   private readonly prisma: PrismaClient;
@@ -39,49 +40,22 @@ export class AuthService {
 
   async register(data: RegisterInput): Promise<AuthResponse> {
     try {
-      // Check if email already exists
-      const existingUser = await this.prisma.user.findFirst({
-        where: {
-          email: data.email.toLowerCase(),
-          deletedAt: null,
-        },
-      });
+      const payload = {
+        email: data.email,
+        password: data.password,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        status: UserStatus.PENDING,
 
-      if (existingUser) {
-        throw new EmailExistsError();
-      }
+        ...(data.phoneNumber !== undefined && {
+          phoneNumber: data.phoneNumber,
+        }),
+        ...(data.address !== undefined && { address: data.address }),
+        ...(data.birthday !== undefined && { birthday: data.birthday }),
+        ...(data.gender !== undefined && { gender: data.gender }),
+      } satisfies CreateUserInput;
 
-      // Check phone number uniqueness if provided
-      if (data.phoneNumber) {
-        const existingPhone = await this.prisma.user.findFirst({
-          where: {
-            phoneNumber: data.phoneNumber,
-            deletedAt: null,
-          },
-        });
-
-        if (existingPhone) {
-          throw new PhoneExistsError();
-        }
-      }
-
-      // Hash password
-      const hashedPassword = await PasswordUtils.hash(data.password);
-
-      // Create user
-      const user = await this.prisma.user.create({
-        data: {
-          email: data.email.toLowerCase(),
-          password: hashedPassword,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          phoneNumber: data.phoneNumber || null,
-          address: data.address || null,
-          birthday: data.birthday || null,
-          gender: data.gender || null,
-          status: UserStatus.PENDING,
-        },
-      });
+      const user = await userService.createUser(payload);
 
       // Generate tokens
       const accessToken = JwtUtils.generateAccessToken({
@@ -97,20 +71,26 @@ export class AuthService {
       try {
         await redis.set(refreshTokenKey, refreshToken, 7 * 24 * 60 * 60); // 7 days
       } catch (error) {
-        throw new ExternalServiceError('Redis', 'Failed to store refresh token');
+        throw new ExternalServiceError(
+          'Redis',
+          'Failed to store refresh token'
+        );
       }
 
       return {
-        user: this.excludePassword(user),
+        user: user,
         accessToken,
         refreshToken,
         expiresIn: JwtUtils.getTokenExpirationTime(),
       };
     } catch (error) {
-      if (error instanceof EmailExistsError || error instanceof PhoneExistsError) {
+      if (
+        error instanceof EmailExistsError ||
+        error instanceof PhoneExistsError
+      ) {
         throw error;
       }
-      
+
       // Handle Prisma errors
       if ((error as any).code && (error as any).code.startsWith('P')) {
         throw PrismaErrorHandler.handle(error);
@@ -135,12 +115,18 @@ export class AuthService {
       }
 
       // Check if user is active
-      if (user.status === UserStatus.BANNED || user.status === UserStatus.SUSPENDED) {
+      if (
+        user.status === UserStatus.BANNED ||
+        user.status === UserStatus.SUSPENDED
+      ) {
         throw new AccountSuspendedError();
       }
 
       // Verify password
-      const isPasswordValid = await PasswordUtils.verify(data.password, user.password);
+      const isPasswordValid = await PasswordUtils.verify(
+        data.password,
+        user.password
+      );
 
       if (!isPasswordValid) {
         throw new InvalidCredentialsError();
@@ -166,7 +152,10 @@ export class AuthService {
       try {
         await redis.set(refreshTokenKey, refreshToken, 7 * 24 * 60 * 60); // 7 days
       } catch (error) {
-        throw new ExternalServiceError('Redis', 'Failed to store refresh token');
+        throw new ExternalServiceError(
+          'Redis',
+          'Failed to store refresh token'
+        );
       }
 
       return {
@@ -176,7 +165,10 @@ export class AuthService {
         expiresIn: JwtUtils.getTokenExpirationTime(),
       };
     } catch (error) {
-      if (error instanceof InvalidCredentialsError || error instanceof AccountSuspendedError) {
+      if (
+        error instanceof InvalidCredentialsError ||
+        error instanceof AccountSuspendedError
+      ) {
         throw error;
       }
 
@@ -188,7 +180,9 @@ export class AuthService {
     }
   }
 
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string; expiresIn: number }> {
+  async refreshToken(
+    refreshToken: string
+  ): Promise<{ accessToken: string; expiresIn: number }> {
     try {
       // Verify refresh token
       const payload = JwtUtils.verifyRefreshToken(refreshToken);
@@ -196,11 +190,14 @@ export class AuthService {
       // Check if refresh token exists in Redis
       const refreshTokenKey = `refresh_token:${payload.userId}`;
       let storedToken: string | null;
-      
+
       try {
         storedToken = await redis.get(refreshTokenKey);
       } catch (error) {
-        throw new ExternalServiceError('Redis', 'Failed to verify refresh token');
+        throw new ExternalServiceError(
+          'Redis',
+          'Failed to verify refresh token'
+        );
       }
 
       if (!storedToken || storedToken !== refreshToken) {
@@ -219,7 +216,10 @@ export class AuthService {
         throw new UserNotFoundError();
       }
 
-      if (user.status === UserStatus.BANNED || user.status === UserStatus.SUSPENDED) {
+      if (
+        user.status === UserStatus.BANNED ||
+        user.status === UserStatus.SUSPENDED
+      ) {
         throw new AccountSuspendedError();
       }
 
@@ -235,10 +235,12 @@ export class AuthService {
         expiresIn: JwtUtils.getTokenExpirationTime(),
       };
     } catch (error) {
-      if (error instanceof InvalidTokenError || 
-          error instanceof UserNotFoundError || 
-          error instanceof AccountSuspendedError ||
-          error instanceof ExternalServiceError) {
+      if (
+        error instanceof InvalidTokenError ||
+        error instanceof UserNotFoundError ||
+        error instanceof AccountSuspendedError ||
+        error instanceof ExternalServiceError
+      ) {
         throw error;
       }
 
@@ -260,7 +262,10 @@ export class AuthService {
     }
   }
 
-  async changePassword(userId: string, data: ChangePasswordInput): Promise<void> {
+  async changePassword(
+    userId: string,
+    data: ChangePasswordInput
+  ): Promise<void> {
     try {
       // Get user
       const user = await this.prisma.user.findFirst({
@@ -302,7 +307,10 @@ export class AuthService {
         console.error('Failed to invalidate refresh token:', error);
       }
     } catch (error) {
-      if (error instanceof UserNotFoundError || error instanceof UnauthorizedError) {
+      if (
+        error instanceof UserNotFoundError ||
+        error instanceof UnauthorizedError
+      ) {
         throw error;
       }
 
@@ -314,7 +322,9 @@ export class AuthService {
     }
   }
 
-  async requestPasswordReset(data: PasswordResetInput): Promise<{ token: string }> {
+  async requestPasswordReset(
+    data: PasswordResetInput
+  ): Promise<{ token: string }> {
     try {
       // Find user by email
       const user = await this.prisma.user.findFirst({
@@ -327,7 +337,9 @@ export class AuthService {
       if (!user) {
         // Security: Don't reveal whether email exists
         // But still return success to prevent email enumeration
-        throw new UserNotFoundError('If the email exists, a reset link would be sent');
+        throw new UserNotFoundError(
+          'If the email exists, a reset link would be sent'
+        );
       }
 
       // Generate reset token

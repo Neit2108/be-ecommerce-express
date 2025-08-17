@@ -30,21 +30,21 @@ export class ValidationError extends AppError {
 
 // 401 - Unauthorized
 export class UnauthorizedError extends AppError {
-  constructor(message: string = 'Unauthorized') {
+  constructor(message: string = 'Không được phép') {
     super(message, 401, 'UNAUTHORIZED');
     this.name = 'UnauthorizedError';
   }
 }
 
 export class InvalidCredentialsError extends AppError {
-  constructor(message: string = 'Invalid email or password') {
+  constructor(message: string = 'Email hoặc mật khẩu không hợp lệ') {
     super(message, 401, 'INVALID_CREDENTIALS');
     this.name = 'InvalidCredentialsError';
   }
 }
 
 export class TokenExpiredError extends AppError {
-  constructor(message: string = 'Token has expired') {
+  constructor(message: string = 'Token đã hết hạn') {
     super(message, 401, 'TOKEN_EXPIRED');
     this.name = 'TokenExpiredError';
   }
@@ -66,14 +66,14 @@ export class ForbiddenError extends AppError {
 }
 
 export class AccountSuspendedError extends AppError {
-  constructor(message: string = 'Account is suspended or banned') {
+  constructor(message: string = 'Tài khoản bị tạm ngưng hoặc cấm') {
     super(message, 403, 'ACCOUNT_SUSPENDED');
     this.name = 'AccountSuspendedError';
   }
 }
 
 export class EmailNotVerifiedError extends AppError {
-  constructor(message: string = 'Email verification required') {
+  constructor(message: string = 'Email chưa được xác minh') {
     super(message, 403, 'EMAIL_NOT_VERIFIED');
     this.name = 'EmailNotVerifiedError';
   }
@@ -88,7 +88,7 @@ export class NotFoundError extends AppError {
 }
 
 export class UserNotFoundError extends AppError {
-  constructor(message: string = 'User not found') {
+  constructor(message: string = 'Người dùng không tồn tại') {
     super(message, 404, 'USER_NOT_FOUND');
     this.name = 'UserNotFoundError';
   }
@@ -103,14 +103,14 @@ export class ConflictError extends AppError {
 }
 
 export class EmailExistsError extends AppError {
-  constructor(message: string = 'Email already exists') {
+  constructor(message: string = 'Email đã tồn tại') {
     super(message, 409, 'EMAIL_EXISTS');
     this.name = 'EmailExistsError';
   }
 }
 
 export class PhoneExistsError extends AppError {
-  constructor(message: string = 'Phone number already exists') {
+  constructor(message: string = 'Số điện thoại đã tồn tại') {
     super(message, 409, 'PHONE_EXISTS');
     this.name = 'PhoneExistsError';
   }
@@ -125,7 +125,7 @@ export class UnprocessableEntityError extends AppError {
 }
 
 export class WeakPasswordError extends AppError {
-  constructor(message: string = 'Password does not meet security requirements', details?: any) {
+  constructor(message: string = 'Mật khẩu không đủ mạnh', details?: any) {
     super(message, 422, 'WEAK_PASSWORD', details);
     this.name = 'WeakPasswordError';
   }
@@ -133,7 +133,7 @@ export class WeakPasswordError extends AppError {
 
 // 429 - Too Many Requests
 export class TooManyRequestsError extends AppError {
-  constructor(message: string = 'Too many requests', retryAfter?: number) {
+  constructor(message: string = 'Quá nhiều yêu cầu', retryAfter?: number) {
     super(message, 429, 'TOO_MANY_REQUESTS', { retryAfter });
     this.name = 'TooManyRequestsError';
   }
@@ -141,14 +141,14 @@ export class TooManyRequestsError extends AppError {
 
 // 500 - Internal Server Error
 export class DatabaseError extends AppError {
-  constructor(message: string = 'Database operation failed') {
+  constructor(message: string = 'Lỗi khi thực hiện thao tác với cơ sở dữ liệu') {
     super(message, 500, 'DATABASE_ERROR');
     this.name = 'DatabaseError';
   }
 }
 
 export class ExternalServiceError extends AppError {
-  constructor(service: string, message: string = 'External service unavailable') {
+  constructor(service: string, message: string = 'Dịch vụ bên ngoài không khả dụng') {
     super(`${service}: ${message}`, 500, 'EXTERNAL_SERVICE_ERROR');
     this.name = 'ExternalServiceError';
   }

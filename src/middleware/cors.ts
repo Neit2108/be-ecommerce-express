@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import cors, { CorsOptions } from 'cors';
 
-// Dynamic CORS configuration
 const corsConfig: CorsOptions = {
   origin: (origin, callback) => {
     const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
@@ -9,13 +8,12 @@ const corsConfig: CorsOptions = {
       'http://localhost:3001',
     ];
 
-    // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error('Không được phép truy cập từ nguồn này'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -36,10 +34,10 @@ export const corsMiddleware = cors(corsConfig);
 
 // Custom CORS error handler
 export const corsErrorHandler = (err: Error, req: Request, res: Response, next: NextFunction): void => {
-  if (err.message === 'Not allowed by CORS') {
+  if (err.message === 'Không được phép truy cập từ nguồn này') {
     res.status(403).json({
       error: 'CORS Error',
-      message: 'Origin not allowed',
+      message: 'Không được phép truy cập từ nguồn này',
       origin: req.get('Origin'),
     });
   } else {

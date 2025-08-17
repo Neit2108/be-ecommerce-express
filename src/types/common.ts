@@ -10,21 +10,6 @@ export interface IDeletable {
   deletedBy?: string | null;
 }
 
-export enum UserStatus {
-  ACTIVE = 'ACTIVE',
-  INACTIVE = 'INACTIVE',
-  PENDING = 'PENDING',
-  SUSPENDED = 'SUSPENDED',
-  BANNED = 'BANNED'
-}
-
-export enum Gender {
-  MALE = 'MALE',
-  FEMALE = 'FEMALE',
-  OTHER = 'OTHER',
-  PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY'
-}
-
 export interface PaginationParams {
   page?: number;
   limit?: number;

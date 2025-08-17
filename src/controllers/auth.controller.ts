@@ -33,7 +33,7 @@ export class AuthController {
     const response: ApiResponse = {
       success: true,
       data: result,
-      message: 'User registered successfully',
+      message: 'Đăng ký thành công',
     };
 
     res.status(201).json(response);
@@ -52,7 +52,7 @@ export class AuthController {
     const response: ApiResponse = {
       success: true,
       data: result,
-      message: 'Login successful',
+      message: 'Đăng nhập thành công',
     };
 
     res.json(response);
@@ -71,7 +71,7 @@ export class AuthController {
     const response: ApiResponse = {
       success: true,
       data: result,
-      message: 'Token refreshed successfully',
+      message: 'Làm mới token thành công',
     };
 
     res.json(response);
@@ -88,7 +88,7 @@ export class AuthController {
 
     const response: ApiResponse = {
       success: true,
-      message: 'Logout successful',
+      message: 'Đăng xuất thành công',
     };
 
     res.json(response);
