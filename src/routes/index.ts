@@ -3,6 +3,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes';
 import healthRoutes from './health.routes';
 import userRoutes from './user.routes';
+import productRoutes from './product.routes';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.get('/', (req, res) => {
 
 router.use('/api/auth', authRoutes);
 router.use('/api/users', userRoutes);
+router.use('/api/products', productRoutes);
 router.use('/health', healthRoutes);
 
 export default router;

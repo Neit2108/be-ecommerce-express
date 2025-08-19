@@ -28,7 +28,7 @@ model User {
   id          String     @id @default(uuid())
   email       String     @unique
   password    String
-  identityCard String    @unique
+  identityCard String?    @unique
   
   // Personal information
   firstName   String     @map("first_name")
@@ -76,9 +76,16 @@ model User {
 enum ShopStatus {
   ACTIVE
   INACTIVE
-  PENDING_APPROVAL
   SUSPENDED
   CLOSED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVIEWING
+  REQUIRES_DOCUMENTS
 }
 
 model Shop {
@@ -86,7 +93,8 @@ model Shop {
   id      String     @id @default(uuid())
   ownerId String     @map("owner_id") @unique
   name    String
-  status  ShopStatus @default(PENDING_APPROVAL)
+  status  ShopStatus @default(INACTIVE)
+  logoUrl         String?        @map("logo_url")
   
   // Address fields 
   street      String?
@@ -94,16 +102,42 @@ model Shop {
   district       String?
   city  String?  
   country     String @default("Vietnamese")
+
+  // Business config
+  category    String? // bán gì ? Quần áo, giày dép, công nghệ...
+  isVerified      Boolean        @default(false) @map("is_verified") // giống shopee mall á
+  verifiedAt      DateTime?      @map("verified_at")
+
+  //operation
+  autoApprove     Boolean        @default(false) @map("auto_approve") // tu xac nhan don hang
   
+  // Approval
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  approvedBy      String?        @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  rejectionReason String?        @map("rejection_reason")
+
+  // bank acc
+  taxCode         String?        @map("tax_code")
+  bankName        String?        @map("bank_name")
+  bankAccount     String?        @map("bank_account")
+  accountNumber   String?        @map("account_number")
+
+  // statistic
+  totalRevenue    Decimal        @default(0) @map("total_revenue") @db.Decimal(15,2)
+  totalOrders     Int            @default(0) @map("total_orders")
+  rating          Decimal?       @db.Decimal(3,2) // trung bình từ sp trong shop
+  reviewCount     Int            @default(0) @map("review_count")
+
   // Auditable fields
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
-  createdBy   String?    @map("created_by") // User ID who created
-  updatedBy   String?    @map("updated_by") // User ID who last updated
+  createdBy   String?    @map("created_by") 
+  updatedBy   String?    @map("updated_by") 
   
   // Soft delete fields
   deletedAt   DateTime?  @map("deleted_at")
-  deletedBy   String?    @map("deleted_by") // User ID who deleted
+  deletedBy   String?    @map("deleted_by") 
   
   // Relations
   owner    User       @relation("ShopOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -235,7 +269,7 @@ model ProductOption {
   // Primary fields
   id        String @id @default(uuid())
   productId String @map("product_id")
-  name      String
+  name      String @db.Citext
   
   // Auditable fields
   createdAt   DateTime   @default(now()) @map("created_at")
@@ -252,6 +286,7 @@ model ProductOption {
   values                    ProductOptionValue[]
   productVariantOptionValues ProductVariantOptionValue[]
   
+  @@unique([productId, name])
   @@map("product_options")
   @@index([productId])
   @@index([name])
@@ -263,7 +298,7 @@ model ProductOptionValue {
   // Primary fields
   id              String @id @default(uuid())
   productOptionId String @map("product_option_id")
-  value           String
+  value           String @db.Citext
   sortOrder       Int    @default(0) @map("sort_order")
   
   // Auditable fields
@@ -280,6 +315,7 @@ model ProductOptionValue {
   productOption              ProductOption               @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
   productVariantOptionValues ProductVariantOptionValue[]
   
+  @@unique([productOptionId, value])
   @@map("product_option_values")
   @@index([productOptionId])
   @@index([sortOrder])

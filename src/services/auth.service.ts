@@ -1,8 +1,8 @@
 import { PrismaClient, User, UserStatus } from '@prisma/client';
 import { prisma } from '../config/prisma';
 import { redis } from '../config/redis';
-import { PasswordUtils } from '../utils/password.utils';
-import { JwtUtils } from '../utils/jwt.utils';
+import { PasswordUtils } from '../utils/password.util';
+import { JwtUtils } from '../utils/jwt.util';
 import { PrismaErrorHandler } from '../errors/PrismaErrorHandler';
 import { userService } from '../config/container';
 import {

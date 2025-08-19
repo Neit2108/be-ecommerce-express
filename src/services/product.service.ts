@@ -1,0 +1,349 @@
+import { ProductStatus, ShopStatus } from '@prisma/client';
+import { ForbiddenError, NotFoundError, ValidationError } from '../errors/AppError';
+import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
+import {
+  AddProductCategoriesInput,
+  AddProductImagesInput,
+  AddProductOptionsInput,
+  AddProductVariantsInput,
+  CreateDraftProductInput,
+  DraftProductResponse,
+  ProductCategoriesResponse,
+  ProductImagesResponse,
+  ProductOptionsResponse,
+  ProductStatusResponse,
+  ProductVariantsResponse,
+  UpdateProductStatusInput,
+  VariantOptionValueMapping,
+} from '../types/product.types';
+import { generateSKU } from '../utils/sku.util';
+import { ProductWithRelations } from '../repositories/interfaces/product.interface';
+
+export class ProductService {
+  constructor(private uow: IUnitOfWork) {}
+
+  async findById(productId: string): Promise<ProductWithRelations | null> {
+    return this.uow.products.findById(productId, {
+      shop: true,
+      images: true,
+      options: true,
+      variants: true,
+      categories: true,
+    });
+  }
+
+  async createDraftProduct(
+    data: CreateDraftProductInput,
+    createdBy: string
+  ): Promise<DraftProductResponse> {
+    return this.uow.executeInTransaction(async (uow) => {
+      const shop = await uow.shops.findById(data.shopId);
+      if (!shop) {
+        throw new NotFoundError('Shop');
+      }
+      if (shop.ownerId !== createdBy) {
+        throw new ForbiddenError(
+          'Bạn không có quyền tạo sản phẩm cho cửa hàng này'
+        );
+      }
+      if (shop.status !== ShopStatus.ACTIVE) {
+        throw new ForbiddenError('Cửa hàng này không hoạt động');
+      }
+
+      const product = await uow.products.create({
+        name: data.name,
+        shop: { connect: { id: shop.id } },
+        status: ProductStatus.DRAFT,
+        createdBy,
+        updatedBy: createdBy,
+      });
+
+      console.log('Created product:', product);
+
+      return {
+        id: product.id,
+        name: product.name,
+        shopId: product.shopId,
+        status: product.status,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+      };
+    });
+  }
+
+  async addCategoriesToProduct(
+    productId: string,
+    data: AddProductCategoriesInput,
+    updatedBy: string
+  ): Promise<ProductCategoriesResponse> {
+    return this.uow.executeInTransaction(async (uow) => {
+      const product = await uow.products.findById(productId, { shop: true });
+
+      if (!product) {
+        throw new NotFoundError('Product');
+      }
+      if (product.shop?.ownerId !== updatedBy) {
+        throw new ForbiddenError(
+          'Bạn không có quyền sửa đổi danh mục sản phẩm này'
+        );
+      }
+
+      const categories = [];
+      for (const categoryId of data.categoryIds) {
+        const category = await uow.categories.findById(categoryId);
+        if (!category) {
+          throw new NotFoundError('Category');
+        }
+        categories.push(category);
+      }
+
+      await uow.productCategories.replaceProductCategories(
+        productId,
+        data.categoryIds,
+        updatedBy
+      );
+
+      return {
+        productId,
+        categories: categories.map((cate) => ({
+          id: cate.id,
+          name: cate.name,
+          description: cate.description,
+        })),
+      };
+    });
+  }
+
+  async addOptionsToProduct(
+    productId: string,
+    data: AddProductOptionsInput,
+    updatedBy: string
+  ): Promise<ProductOptionsResponse> {
+    return this.uow.executeInTransaction(async (uow) => {
+      const product = await uow.products.findById(productId, { shop: true });
+
+      if (!product) {
+        throw new NotFoundError('Product');
+      }
+      if (product.shop?.ownerId !== updatedBy) {
+        throw new ForbiddenError(
+          'Bạn không có quyền sửa đổi tùy chọn sản phẩm này'
+        );
+      }
+
+      await uow.products.addOptions(productId, data.options, updatedBy);
+
+      const productWithOptions = await uow.products.findById(productId, {
+        options: true,
+      });
+
+      return {
+        productId,
+        options:
+          productWithOptions?.options?.map((option) => ({
+            id: option.id,
+            name: option.name,
+            values:
+              option.values?.map((value) => ({
+                id: value.id,
+                value: value.value,
+                sortOrder: value.sortOrder,
+              })) || [],
+          })) || [],
+      };
+    });
+  }
+
+  async addVariantsToProduct(
+    productId: string,
+    data: AddProductVariantsInput,
+    updatedBy: string
+  ): Promise<ProductVariantsResponse> {
+    return this.uow.executeInTransaction(async (uow) => {
+      const product = await uow.products.findById(productId, {
+        shop: true,
+        options: true,
+      });
+
+      if (!product) {
+        throw new NotFoundError('Product');
+      }
+      if (product.shop?.ownerId !== updatedBy) {
+        throw new ForbiddenError(
+          'Bạn không có quyền sửa đổi biến thể sản phẩm này'
+        );
+      }
+
+      const createdVariants = [];
+
+      for (const variantData of data.variants) {
+        const sku = generateSKU(
+          product.shop!.name,
+          product.name,
+          variantData.name
+        );
+
+        const existingVariant = await uow.productVariants.findBySku(sku);
+        if (existingVariant) {
+          throw new ForbiddenError(`SKU ${sku} đã tồn tại cho sản phẩm khác`);
+        }
+
+        const variant = await uow.productVariants.create({
+          product: { connect: { id: product.id } },
+          sku,
+          name: variantData.name,
+          value: variantData.value,
+          price: variantData.price,
+          currency: variantData.currency ?? 'VND',
+          description: variantData.description ?? null,
+          status: ProductStatus.DRAFT,
+          createdBy: updatedBy,
+          updatedBy: updatedBy,
+        });
+
+        if (
+          variantData.optionCombination &&
+          Object.keys(variantData.optionCombination).length > 0
+        ) {
+          const optionValueMappings = await this.resolveOptionValueMappings(
+            product.options || [],
+            variantData.optionCombination
+          );
+
+          if (optionValueMappings.length > 0) {
+            await uow.productVariants.setOptionValues(
+              variant.id,
+              optionValueMappings,
+              updatedBy
+            );
+          }
+        }
+
+        createdVariants.push(variant);
+      }
+
+      return {
+        productId,
+        variants: createdVariants.map((variant) => ({
+          id: variant.id,
+          name: variant.name,
+          value: variant.value,
+          price: Number(variant.price),
+          currency: variant.currency,
+          sku: variant.sku,
+        })),
+      };
+    });
+  }
+
+  private async resolveOptionValueMappings(
+    options: any[],
+    optionCombination: Record<string, string>
+  ): Promise<VariantOptionValueMapping[]> {
+    const mappings: VariantOptionValueMapping[] = [];
+
+    for (const [optionName, optionValue] of Object.entries(optionCombination)) {
+      const option = options.find(
+        (opt) => opt.name.toLowerCase() === optionName.toLowerCase()
+      );
+      if (!option) {
+        throw new NotFoundError(`Option '${optionName}`);
+      }
+
+      const value = option.values?.find(
+        (val: any) => val.value.toLowerCase() === optionValue.toLowerCase()
+      );
+      if (!value) {
+        throw new NotFoundError(
+          `Option value '${optionValue}'của option '${optionName}'`
+        );
+      }
+
+      mappings.push({
+        optionId: option.id,
+        optionValueId: value.id,
+      });
+    }
+
+    return mappings;
+  }
+
+  async addImagesToProduct(
+    productId: string,
+    data: AddProductImagesInput,
+    updatedBy: string
+  ): Promise<ProductImagesResponse> {
+    return this.uow.executeInTransaction(async (uow) => {
+      const product = await uow.products.findById(productId, { shop: true });
+      if (!product) {
+        throw new NotFoundError('Product');
+      }
+      if (product.shop?.ownerId !== updatedBy) {
+        throw new ForbiddenError(
+          'Bạn không có quyền sửa đổi hình ảnh sản phẩm này'
+        );
+      }
+
+      const imagesData = data.images.map((img, index) => ({
+        productId,
+        imageUrl: img.imageUrl,
+        isPrimary: img.isPrimary || index === 0,
+        sortOrder: img.sortOrder ?? index,
+        description: img.description ?? null,
+      }));
+
+      await uow.products.addImages(productId, imagesData, updatedBy);
+
+      const productWithImages = await uow.products.findById(productId, {
+        images: true,
+      });
+
+      return {
+        productId,
+        images:
+          productWithImages?.images?.map((img) => ({
+            id: img.id,
+            imageUrl: img.imageUrl,
+            isPrimary: img.isPrimary,
+            sortOrder: img.sortOrder,
+            description: img.description ?? '',
+          })) || [],
+      };
+    });
+  }
+
+  async updateProductStatus(productId: string, data: UpdateProductStatusInput, updatedBy: string) : Promise<ProductStatusResponse>{
+    return this.uow.executeInTransaction(async (uow) => {
+      const product = await uow.products.findById(productId, { shop: true, variants: true, images: true });
+
+      if(!product){
+        throw new NotFoundError('Product');
+      }
+
+      if(product.shop?.ownerId !== updatedBy){
+        throw new ForbiddenError('Bạn không có quyền sửa đổi trạng thái sản phẩm này');
+      }
+
+      if(data.status === ProductStatus.PUBLISHED){
+        if(!product.variants || product.variants.length === 0){
+          throw new ValidationError('Sản phẩm chưa có biến thể');
+        }
+
+        if(!product.images || product.images.length === 0){
+          throw new ValidationError('Sản phẩm chưa có hình ảnh');
+        }
+      }
+
+      const updatedProduct = await uow.products.update(productId, {
+        status: data.status,
+        updatedBy
+      });
+
+      return {
+        id: updatedProduct.id,
+        status: updatedProduct.status,
+        updatedAt: updatedProduct.updatedAt
+      };
+    });
+  }
+}

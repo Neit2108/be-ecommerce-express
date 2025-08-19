@@ -1,5 +1,5 @@
 import { PrismaClient, Prisma, User, UserStatus } from '@prisma/client';
-import { IUserRepository } from '../interfaces/user.interfaces';
+import { IUserRepository } from '../interfaces/user.interface';
 import { PrismaErrorHandler } from '../../errors/PrismaErrorHandler';
 import { DatabaseError } from '../../errors/AppError';
 

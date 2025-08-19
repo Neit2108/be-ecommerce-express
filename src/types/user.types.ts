@@ -11,6 +11,7 @@ export interface UserEntity extends User, IAuditable, IDeletable {}
 export interface CreateUserInput {
   email: string;
   password: string;
+  identityCard?: string;
   firstName: string;
   lastName: string;
   phoneNumber?: string;

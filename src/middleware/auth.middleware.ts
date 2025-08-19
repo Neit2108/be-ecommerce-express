@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { JwtUtils } from '../utils/jwt.utils';
+import { JwtUtils } from '../utils/jwt.util';
 import { prisma } from '../config/prisma';
 import { ApiResponse } from '../types/common';
 import { JwtPayload } from '../types/auth.types';

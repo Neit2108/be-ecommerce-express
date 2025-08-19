@@ -1,4 +1,4 @@
- {
+{
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
@@ -28,6 +28,6 @@
     "allowUnreachableCode": false,
     "exactOptionalPropertyTypes": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"]
 }

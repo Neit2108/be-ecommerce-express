@@ -37,7 +37,7 @@ export class UnauthorizedError extends AppError {
 }
 
 export class InvalidCredentialsError extends AppError {
-  constructor(message: string = 'Email hoặc mật khẩu không hợp lệ') {
+  constructor(message: string = 'Thông tin không hợp lệ') {
     super(message, 401, 'INVALID_CREDENTIALS');
     this.name = 'InvalidCredentialsError';
   }
@@ -81,8 +81,8 @@ export class EmailNotVerifiedError extends AppError {
 
 // 404 - Not Found
 export class NotFoundError extends AppError {
-  constructor(resource: string = 'Resource') {
-    super(`${resource} not found`, 404, 'NOT_FOUND');
+  constructor(resource: string = 'resource') {
+    super(`${resource} không tồn tại`, 404, 'NOT_FOUND');
     this.name = 'NotFoundError';
   }
 }

@@ -1,5 +1,5 @@
+import { Gender, UserStatus } from '@prisma/client';
 import Joi from 'joi';
-import { UserStatus, Gender } from '../types/common';
 
 const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
 const nameRegex = /^[a-zA-ZÀ-ÿ\s'-]+$/;
