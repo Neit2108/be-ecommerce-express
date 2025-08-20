@@ -262,4 +262,19 @@ export class UserRepository implements IUserRepository {
       throw new DatabaseError('User restore failed');
     }
   }
+
+  async isVerified(id: string): Promise<boolean> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id },
+        select: { status: true , emailVerified: true, identityCard: true },
+      });
+      return user?.status === UserStatus.ACTIVE && user?.emailVerified === true && user?.identityCard !== null;
+    } catch (error) {
+      if ((error as any).code?.startsWith('P')) {
+        throw PrismaErrorHandler.handle(error);
+      }
+      throw new DatabaseError('User verification check failed');
+    }
+  }
 }

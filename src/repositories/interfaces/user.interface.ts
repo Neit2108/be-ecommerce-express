@@ -21,4 +21,6 @@ export interface IUserRepository {
   existsByPhoneNumber(phoneNumber: string): Promise<boolean>;
   softDelete(id: string, deletedBy?: string): Promise<User>;
   restore(id: string): Promise<User>;
+
+  isVerified(id: string): Promise<boolean>;
 }
