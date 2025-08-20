@@ -1,4 +1,4 @@
-import { ShopStatus, ApprovalStatus, Shop } from '@prisma/client';
+import { ShopStatus, ApprovalStatus, Shop, Prisma } from '@prisma/client';
 import { PaginationParams } from './common';
 
 export interface ShopFilters extends PaginationParams {
@@ -14,61 +14,73 @@ export interface ShopFilters extends PaginationParams {
   };
 }
 
+export interface ShopIncludes {
+  owner?: boolean;
+  products?: boolean;
+  currentKyc?: boolean;
+  kycData?: boolean;
+}
+
+export type ShopWithRelations = Prisma.ShopGetPayLoad<{
+  include: {
+    owner: true;
+    currentKyc: true;
+    kycData: true;
+  };
+}>;
+
 export interface CreateDraftShopInput {
   name: string;
   category?: string;
+  email?: string;
+  phoneNumber?: string;
   logoUrl?: string;
-
   street?: string;
   ward?: string;
   district?: string;
   city?: string;
-  country?: string;
-
-  email?: string;
-  phoneNumber?: string;
-}
-
-export interface DraftShopResponse {
-  id: string;
-  name: string;
-}
-
-export interface SetBankAccountInput {
-  taxCode: string;
-  bankName: string;
-  bankAccount: string;
-  accountNumber: string;
 }
 
 export interface ShopResponse{
   id: string;
   name: string;
-
+  category?: string;
   logoUrl?: string;
-  email?: string;
-  phoneNumber?: string;
-  address?: {
-    street?: string;
-    ward?: string;
-    district?: string;
-    city?: string;
-    country?: string;
-  };
-
-  bankAccount?: {
-    taxCode?: string;
-    bankName?: string;
-    bankAccount?: string;
-    accountNumber?: string;
-  };
 }
 
-export interface CheckKycInput {
-  shopId: string;
+export interface UpdateBankAccountInput {
+  bankName: string;
+  bankAccount: string;
+  accountNumber: string;
+  taxCode?: string;
 }
 
-export interface CheckKycResponse {
-  isApproved: boolean;
-  approvedBy?: string;
+export interface SubmitKycInput {
+  fullName: string;
+  birthday: Date;
+  personalAddress: string;
+  personalPhone: string;
+  personalEmail: string;
+  identityCard: string;
+
+  // Shop info
+  shopName: string;
+  taxCode?: string;
+  shopAddress: string;
+  shopPhone: string;
+  shopEmail: string;
+  shopRegDate?: Date;
+
+  // Documents
+  documents: {
+    type: DocumentType;
+    fileName: string;
+    fileUrl: string;
+    fileSize?: number;
+    mimeType?: string;
+  }[];
+}
+
+export interface KycResponse{
+  
 }

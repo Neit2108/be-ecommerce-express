@@ -18,7 +18,8 @@ declare global {
 }
 
 /**
- * Middleware to verify JWT token and attach user to request
+ * Kiểm tra xác thực token
+ * Nếu token hợp lệ, gán người dùng vào req.user
  */
 export const authenticateToken = async (
   req: Request,
@@ -33,7 +34,7 @@ export const authenticateToken = async (
     if (!token) {
       const response: ApiResponse = {
         success: false,
-        error: 'Access token is required',
+        error: 'Bắt buộc có token xác thực',
         code: 'TOKEN_REQUIRED',
       };
       res.status(401).json(response);
@@ -47,7 +48,7 @@ export const authenticateToken = async (
     } catch (error) {
       const response: ApiResponse = {
         success: false,
-        error: 'Invalid or expired access token',
+        error: 'Token không hợp lệ hoặc đã hết hạn',
         code: 'INVALID_TOKEN',
       };
       res.status(401).json(response);
@@ -102,7 +103,8 @@ export const authenticateToken = async (
 };
 
 /**
- * Middleware to verify JWT token but don't fail if not present (optional auth)
+ * Kiem tra xác thực tùy chọn
+ * Nếu có token, xác thực và gán người dùng vào req.user
  */
 export const optionalAuth = async (
   req: Request,
@@ -146,7 +148,7 @@ export const optionalAuth = async (
 };
 
 /**
- * Middleware to check if user has specific status
+ * Kiểm tra quyền truy cập dựa trên trạng thái người dùng
  */
 export const requireStatus = (allowedStatuses: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -163,7 +165,7 @@ export const requireStatus = (allowedStatuses: string[]) => {
     if (!allowedStatuses.includes(req.user.status)) {
       const response: ApiResponse = {
         success: false,
-        error: 'Insufficient permissions',
+        error: 'Quyền truy cập không đủ',
         code: 'INSUFFICIENT_PERMISSIONS',
       };
       res.status(403).json(response);
@@ -175,7 +177,7 @@ export const requireStatus = (allowedStatuses: string[]) => {
 };
 
 /**
- * Middleware to check if user is verified
+ * Kiểm tra xem người dùng đã xác thực email chưa
  */
 export const requireVerified = async (
   req: Request,

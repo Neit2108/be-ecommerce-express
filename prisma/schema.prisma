@@ -7,6 +7,192 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// role management
+enum RoleType{
+  SYSTEM_ADMIN     // Quản trị viên hệ thống
+  SELLER       
+  CUSTOMER 
+  GUEST        
+  KYC_REVIEWER     // Người duyệt KYC
+}
+
+model Role{
+  id          String   @id @default(uuid())
+  name        String   @unique
+  type        RoleType
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by")
+  updatedBy   String?    @map("updated_by")
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by")
+
+  userRoles       UserRole[]
+
+  @@map("roles")
+  @@index([type])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+enum PermissionModule {
+  USER_MANAGEMENT
+  SHOP_MANAGEMENT
+  PRODUCT_MANAGEMENT
+  ORDER_MANAGEMENT
+  KYC_MANAGEMENT
+  CATEGORY_MANAGEMENT
+  SYSTEM_SETTINGS
+  REPORTS_ANALYTICS
+}
+
+enum PermissionAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  EXPORT
+  IMPORT
+  ASSIGN
+  REVOKE
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  module      PermissionModule
+  action      PermissionAction
+  description String?
+  isActive    Boolean          @default(true) @map("is_active")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by")
+  updatedBy   String?    @map("updated_by")
+  
+  // Soft delete fields
+  deletedAt   DateTime?  @map("deleted_at")
+  deletedBy   String?    @map("deleted_by")
+
+  // Relations
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+
+  @@unique([module, action, resource])
+  @@map("permissions")
+  @@index([module])
+  @@index([action])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model RolePermission {
+  id           String @id @default(uuid())
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by")
+  updatedBy   String?    @map("updated_by")
+  
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+  @@index([roleId])
+  @@index([permissionId])
+  @@index([createdAt])
+}
+
+model UserRole {
+  id        String        @id @default(uuid())
+  userId    String        @map("user_id")
+  roleId    String        @map("role_id")
+  isActive  Boolean       @default(true) @map("is_active")
+  expiresAt DateTime?     @map("expires_at") // Role có thể có thời hạn
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by")
+  updatedBy   String?    @map("updated_by")
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, shopId])
+  @@map("user_roles")
+  @@index([userId])
+  @@index([roleId])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model UserPermission {
+  id           String  @id @default(uuid())
+  userId       String  @map("user_id")
+  permissionId String  @map("permission_id")
+  isGranted    Boolean @default(true) @map("is_granted") // true = grant, false = deny
+  expiresAt    DateTime? @map("expires_at")
+  
+  // Auditable fields
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  createdBy   String?    @map("created_by")
+  updatedBy   String?    @map("updated_by")
+  
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId, shopId])
+  @@map("user_permissions")
+  @@index([userId])
+  @@index([permissionId])
+  @@index([isGranted])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model UserActivity {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  action      String   // CREATE_PRODUCT, UPDATE_SHOP, DELETE_USER, etc.
+  module      String   // PRODUCT, SHOP, USER, etc.
+  resourceId  String?  @map("resource_id") // ID của tài nguyên bị tác động
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  metadata    Json?    // Thông tin bổ sung
+  performedAt DateTime @default(now()) @map("performed_at")
+  
+  // Relations
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop Shop? @relation(fields: [shopId], references: [id], onDelete: SetNull)
+
+  @@map("user_activities")
+  @@index([userId])
+  @@index([action])
+  @@index([module])
+  @@index([resourceId])
+  @@index([performedAt])
+}
+
 // User management
 enum UserStatus {
   ACTIVE
@@ -61,7 +247,12 @@ model User {
 
   // relation
   shop Shop? @relation("ShopOwner")
-  kycData KycData[]
+  approvedShops Shop[]     @relation("ShopApprover") 
+  reviewedKycs  KycData[]  @relation("KycReviewer")
+  kycData       KycData[]
+  roles     UserRole[]
+  permissions UserPermission[]
+  activities    UserActivity[]
 
   @@map("users")
   @@index([email])
@@ -140,12 +331,6 @@ model Shop {
   approvedAt      DateTime?      @map("approved_at")
   rejectionReason String?        @map("rejection_reason")
 
-  // bank acc
-  taxCode         String?        @map("tax_code")
-  bankName        String?        @map("bank_name")
-  bankAccount     String?        @map("bank_account")
-  accountNumber   String?        @map("account_number")
-
   // statistic
   totalRevenue    Decimal        @default(0) @map("total_revenue") @db.Decimal(15,2)
   totalOrders     Int            @default(0) @map("total_orders")
@@ -161,11 +346,17 @@ model Shop {
   // Soft delete fields
   deletedAt   DateTime?  @map("deleted_at")
   deletedBy   String?    @map("deleted_by") 
+
+  approvedBy      String?        @map("approved_by") // Should reference User
+  approver        User?          @relation("ShopApprover", fields: [approvedBy], references: [id])
   
+  currentKycId    String?        @map("current_kyc_id")
+  currentKyc      KycData?       @relation("CurrentKyc", fields: [currentKycId], references: [id])
+
   // Relations
   owner    User       @relation("ShopOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   products Product[] // 1 shop có nhiều products
-  kycData  KycData[]
+  kycData  KycData[]  @relation("ShopKyc")
   
   @@map("shops")
   @@index([ownerId])
@@ -178,7 +369,7 @@ model Shop {
 
 model KycData{
   id                String    @id @default(uuid())
-  status            KYCStatus @default(INCOMPLETE)
+  status            KycStatus @default(INCOMPLETE)
   submittedAt       DateTime?
   reviewedAt        DateTime?
   approvedAt        DateTime?
@@ -210,6 +401,9 @@ model KycData{
 
   user      User          @relation(fields: [userId], references: [id])
   shop      Shop          @relation(fields: [shopId], references: [id])
+  currentShop Shop?       @relation("CurrentKyc")
+  reviewerUserId String?   @map("reviewer_user_id")
+  reviewer       User?     @relation("KycReviewer", fields: [reviewerUserId], references: [id])
   documents KycDocument[]
   history   KycHistory[]
 

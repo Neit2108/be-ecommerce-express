@@ -9,14 +9,21 @@ export interface IShopRepository {
   findByOwnerId(ownerId: string): Promise<Shop | null>;
   update(id: string, data: Prisma.ShopUpdateInput): Promise<Shop>;
   softDelete(id: string, deletedBy: string): Promise<void>;
-  
+
   // Query methods
   findMany(filters: ShopFilters): Promise<Shop[]>;
-  
+
   //approval
-  updateApprovalStatus(shopId: string, status: ApprovalStatus, approvedBy?: string, reason?: string): Promise<Shop>;
+  updateApprovalStatus(
+    shopId: string,
+    status: ApprovalStatus,
+    approvedBy?: string,
+    reason?: string
+  ): Promise<Shop>;
   approve(shopId: string, approvedBy: string): Promise<Shop>;
   reject(shopId: string, rejectedBy: string, reason: string): Promise<Shop>;
+
+  updateCurrentKyc(shopId: string, kycId: string): Promise<Shop>;
 
   // status
   activate(shopId: string): Promise<Shop>;
@@ -30,7 +37,20 @@ export interface IShopRepository {
   // statistics
   updateRevenue(shopId: string, amount: Decimal): Promise<Shop>;
   incrementOrderCount(id: string): Promise<void>;
-  updateRating(id: string, newRating: Decimal, reviewCount: number): Promise<void>;
+  updateRating(
+    id: string,
+    newRating: Decimal,
+    reviewCount: number
+  ): Promise<void>;
+  updateStatistics(
+    id: string,
+    stats: {
+      totalRevenue?: number;
+      totalOrders?: number;
+      rating?: number;
+      reviewCount?: number;
+    }
+  ): Promise<Shop>;
 
   // Count methods
   count(filters?: ShopFilters): Promise<number>;

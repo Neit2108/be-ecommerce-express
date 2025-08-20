@@ -1,14 +1,16 @@
+import { Shop, ApprovalStatus } from '@prisma/client';
 import { NotFoundError, ValidationError } from '../errors/AppError';
 import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
 import {
-  CheckKycInput,
-  CheckKycResponse,
   CreateDraftShopInput,
-  DraftShopResponse,
-  SetBankAccountInput,
+  KycResponse,
   ShopResponse,
+  SubmitKycInput,
+  UpdateBankAccountInput,
 } from '../types/shop.types';
+
 import { DateUtils } from '../utils/date.util';
+import { PaginationParams } from '../types/common';
 
 export class ShopService {
   constructor(private uow: IUnitOfWork) {}
@@ -16,68 +18,208 @@ export class ShopService {
   async createDraftShop(
     data: CreateDraftShopInput,
     createdBy: string
-  ): Promise<DraftShopResponse> {
-    const user = this.uow.users.findById(createdBy);
-    if (!user) throw new NotFoundError(`User : ${createdBy}`);
-    const isUserVerified = await this.uow.users.isVerified(createdBy);
-    if (!isUserVerified)
-      throw new ValidationError(`User : ${createdBy} chưa được xác thực`);
-    const existingShop = await this.uow.shops.findByOwnerId(createdBy);
-    if (existingShop)
-      throw new ValidationError(`User : ${createdBy} đã có cửa hàng`);
+  ): Promise<ShopResponse> {
+    return this.uow.executeInTransaction(async (uow) => {
+      const user = await uow.users.findById(createdBy);
+      if (!user) {
+        throw new NotFoundError('User với id : ' + createdBy);
+      }
 
-    const shop = await this.uow.shops.create({
-      owner: { connect: { id: createdBy } },
-      name: data.name,
-      category: data.category ?? null,
-      logoUrl: data.logoUrl ?? null,
-      street: data.street ?? null,
-      ward: data.ward ?? null,
-      district: data.district ?? null,
-      city: data.city ?? null,
-      country: data.country ?? 'Vietnamese',
-      email: data.email ?? null,
-      phoneNumber: data.phoneNumber ?? null,
-      createdAt: DateUtils.now(),
-      createdBy: createdBy
+      const existingShop = await uow.shops.findByOwnerId(createdBy);
+      if (existingShop) {
+        throw new ValidationError(
+          'Người dùng đã có một cửa hàng. Vui lòng cập nhật cửa hàng hiện tại.'
+        );
+      }
+
+      const shop = await uow.shops.create({
+        name: data.name,
+        owner: { connect: { id: createdBy } },
+        status: ShopStatus.DRAFT,
+        approvalStatus: ApprovalStatus.PENDING,
+        category: data.category,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        logoUrl: data.logoUrl,
+        street: data.street,
+        ward: data.ward,
+        district: data.district,
+        city: data.city,
+        createdBy: createdBy,
+        updatedBy: createdBy,
+      });
+
+      return {
+        id: shop.id,
+        name: shop.name,
+        category: shop.category,
+        logoUrl: shop.logoUrl,
+      } as ShopResponse;
     });
-
-    return {
-      id: shop.id,
-      name: shop.name,
-    };
   }
 
-  async setBankAccount(
+  async updateBankAccount(
     shopId: string,
-    data: SetBankAccountInput,
+    data: UpdateBankAccountInput,
     updatedBy: string
   ): Promise<ShopResponse> {
-    const user = this.uow.users.findById(updatedBy);
-    if (!user) throw new NotFoundError(`User : ${updatedBy}`);
-    const isUserVerified = await this.uow.users.isVerified(updatedBy);
-    if (!isUserVerified)
-      throw new ValidationError(`User : ${updatedBy} chưa được xác thực`);
+    return this.uow.executeInTransaction(async (uow) => {
+      const shop = await uow.shops.findById(shopId);
+      if (!shop) {
+        throw new NotFoundError('Cửa hàng với id: ' + shopId);
+      }
+      if (shop.ownerId !== updatedBy) {
+        throw new ValidationError(
+          'Bạn không có quyền cập nhật thông tin ngân hàng của cửa hàng này.'
+        );
+      }
 
-    const shop = await this.uow.shops.findById(shopId);
-    if (!shop) throw new NotFoundError(`Shop : ${shopId}`);
+      const updatedShop = await uow.shops.update(shopId, {
+        bankName: data.bankName,
+        bankAccount: data.bankAccount,
+        accountNumber: data.accountNumber,
+        taxCode: data.taxCode,
+        updatedBy: updatedBy,
+        updatedAt: DateUtils.now(),
+      });
 
-    const updatedShop = await this.uow.shops.update(shopId, {
-      taxCode: data.taxCode,
-      bankName: data.bankName,
-      bankAccount: data.bankAccount,
-      accountNumber: data.accountNumber,
-      updatedAt: DateUtils.now(),
-      updatedBy: updatedBy
+      return {
+        id: updatedShop.id,
+        name: updatedShop.name,
+        category: updatedShop.category,
+        logoUrl: updatedShop.logoUrl,
+      } as ShopResponse;
     });
-
-    return {
-      id: updatedShop.id,
-      name: updatedShop.name,
-    };
   }
 
-  async checkKyc(shopId: string, data: CheckKycInput): Promise<CheckKycResponse> {
-    
+  async submitKyc(
+    shopId: string,
+    data: SubmitKycInput,
+    updatedBy: string
+  ): Promise<KycResponse> {
+    return this.uow.executeInTransaction(async (uow) => {
+      const shop = await uow.shops.findById(shopId);
+      if (!shop) {
+        throw new NotFoundError('Cửa hàng với id: ' + shopId);
+      }
+      if (shop.ownerId !== updatedBy) {
+        throw new ValidationError(
+          'Bạn không có quyền gửi KYC cho cửa hàng này.'
+        );
+      }
+
+      const kycData = await uow.kycDatas.create({
+        userId: updatedBy,
+        shopId,
+        status: KycStatus.PENDING,
+        submittedAt: new Date(),
+
+        // Personal info
+        fullName: data.fullName,
+        birthday: data.birthday,
+        personalAddress: data.personalAddress,
+        personalPhone: data.personalPhone,
+        personalEmail: data.personalEmail,
+        identityCard: data.identityCard,
+
+        // Shop info
+        shopName: data.shopName,
+        taxCode: data.taxCode,
+        shopAddress: data.shopAddress,
+        shopPhone: data.shopPhone,
+        shopEmail: data.shopEmail,
+        shopRegDate: data.shopRegDate,
+      });
+
+      for (const doc of data.documents) {
+        await uow.kycDocuments.create({
+          kycDataId: kycData.id,
+          type: doc.type,
+          fileName: doc.fileName,
+          fileUrl: doc.fileUrl,
+          fileSize: doc.fileSize,
+          mimeType: doc.mimeType,
+        });
+      }
+
+      await uow.shops.updateApprovalStatus(shopId, ApprovalStatus.PENDING_KYC);
+      await uow.shops.updateCurrentKyc(shopId, kycData.id);
+
+      await uow.kycDatas.addHistoryEntry(kycData.id, 'SUBMIT', {
+        submittedBy: updatedBy,
+        documentsCount: data.documents.length,
+      });
+
+      return {
+
+      } as KycResponse;
+    });
   }
+
+  async submitForApproval(shopId: string, userId: string) : Promise<ShopResponse>{
+    return this.uow.executeInTransaction(async (uow) => {
+      const shop = await uow.shops.findById(shopId, {currentKyc: true});
+      if(!shop){
+        throw new NotFoundError("Shop với id : " + shopId);
+      }
+      if(shop.ownerId !== userId){
+        throw new ValidationError("Bạn không có quyền của cửa hàng này");
+      }
+
+      if(!shop.currentKyc || shop.currentKyc.status !== KycStatus.APPROVED){
+        throw new ValidationError("Cần đính kèm tài liệu trước khi gửi");
+      }
+
+      const updatedShop = await uow.shops.updateApprovalStatus(shopId, ApprovalStatus.REVIEWING);
+
+      return {
+        id: shop.id,
+        name: shop.name,
+      } as ShopResponse
+    });
+  }
+
+  async approveShop(shopId: string, approvedBy: string, autoActivate: boolean = true) : Promise<ShopResponse>{
+    return this.uow.executeInTransaction(async (uow) => {
+      const shop = await uow.shops.findById(shopId, {currentKyc: true});
+      if(!shop){
+        throw new NotFoundError("Shop với id : " + shopId);
+      }
+
+      if(!shop.currentKyc || shop.currentKyc.status !== KycStatus.APPROVED){
+        throw new ValidationError("Phải được xác thực Kyc trước");
+      }
+
+      const updatedShop = await uow.shops.updateApprovalStatus(
+        shopId,
+        ApprovalStatus.APPROVED,
+        approvedBy
+      )
+
+      if(autoActivate){
+        await uow.shops.activate(shopId);
+      }
+
+      return {
+
+      } as ShopResponse;
+    }); 
+  }
+
+  async rejectShop(shopId: string, rejectionReason: string, rejectedBy: string) : Promise<ShopResponse>{
+    return this.uow.executeInTransaction(async (uow) => {
+      const updatedShop = await uow.shops.updateApprovalStatus(
+        shopId,
+        ApprovalStatus.REJECTED,
+        rejectedBy,
+        rejectionReason
+      );
+
+      return {
+
+      } as ShopResponse;
+    });
+  }
+
+  
 }

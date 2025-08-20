@@ -142,6 +142,17 @@ export class ShopRepository implements IShopRepository {
     return this.updateApprovalStatus(shopId, ApprovalStatus.REJECTED, rejectedBy, reason);
   }
 
+  async updateCurrentKyc(shopId: string, kycId: string): Promise<Shop> {
+    const shop = await this.prisma.shop.update({
+      where: { id: shopId },
+      data: {
+        currentKycId: kycId,
+        updatedAt: new Date(),
+      },
+    });
+    return shop;
+  }
+
   async activate(shopId: string): Promise<Shop> {
     const shop = await this.prisma.shop.update({
       where: { id: shopId },
@@ -233,6 +244,20 @@ export class ShopRepository implements IShopRepository {
         updatedAt: new Date(),
       },
     });
+  }
+
+  async updateStatistics(id: string, stats: { totalRevenue?: number; totalOrders?: number; rating?: number; reviewCount?: number; }): Promise<Shop> {
+    const shop = await this.prisma.shop.update({
+      where: { id },
+      data: {
+        totalRevenue: stats.totalRevenue ?? undefined,
+        totalOrders: stats.totalOrders ?? undefined,
+        rating: stats.rating ?? undefined,
+        reviewCount: stats.reviewCount ?? undefined,
+        updatedAt: new Date(),
+      },
+    });
+    return shop;
   }
 
 }

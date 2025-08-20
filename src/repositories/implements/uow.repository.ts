@@ -9,6 +9,10 @@ import { ICategoryRepository, IProductCategoryRepository } from '../interfaces/c
 import { ProductRepository } from './product.repository';
 import { CategoryRepository, ProductCategoryRepository } from './category.repository';
 import { ProductVariantRepository } from './productVariant.repository';
+import { IKycDataRepository } from '../interfaces/kyc.interface';
+import { IKycDocumentRepository } from '../interfaces/kycDoc.interface';
+import { KycDataRepository } from './kyc.repository';
+import { KycDocumentRepository } from './kycDoc.repository';
 
 export class UnitOfWork implements IUnitOfWork {
   private isInTransaction = false;
@@ -18,6 +22,8 @@ export class UnitOfWork implements IUnitOfWork {
   private _categories: ICategoryRepository;
   private _productVariants: IProductVariantRepository;
   private _productCategories: IProductCategoryRepository;
+  private _kycDatas: IKycDataRepository;
+  private _kycDocuments: IKycDocumentRepository;
 
   constructor(private prisma: PrismaClient) {
     this._users = new UserRepository(this.prisma);
@@ -26,6 +32,8 @@ export class UnitOfWork implements IUnitOfWork {
     this._categories = new CategoryRepository(this.prisma);
     this._productVariants = new ProductVariantRepository(this.prisma);
     this._productCategories = new ProductCategoryRepository(this.prisma);
+    this._kycDatas = new KycDataRepository(this.prisma);
+    this._kycDocuments = new KycDocumentRepository(this.prisma);
   }
 
   get users(): IUserRepository {
@@ -52,6 +60,14 @@ export class UnitOfWork implements IUnitOfWork {
     return this._productCategories;
   }
 
+  get kycDatas(): IKycDataRepository {
+    return this._kycDatas;
+  }
+
+  get kycDocuments(): IKycDocumentRepository {
+    return this._kycDocuments;
+  }
+  
   async executeInTransaction<T>(operation: (uow: IUnitOfWork) => Promise<T>): Promise<T> {
     if(this.isInTransaction){
       return await operation(this);
