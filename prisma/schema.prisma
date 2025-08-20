@@ -61,6 +61,7 @@ model User {
 
   // relation
   shop Shop? @relation("ShopOwner")
+  kycData KycData[]
 
   @@map("users")
   @@index([email])
@@ -72,8 +73,27 @@ model User {
   @@index([firstName, lastName])
 }
 
+enum KycStatus{
+  INCOMPLETE
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum DocumentType{
+  IDENTITY_CARD
+}
+
+enum DocumentStatus{
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 // Shop Management
 enum ShopStatus {
+  DRAFT
   ACTIVE
   INACTIVE
   SUSPENDED
@@ -81,7 +101,8 @@ enum ShopStatus {
 }
 
 enum ApprovalStatus {
-  PENDING
+  PENDING_APPROVAL
+  PENDING_KYC
   APPROVED
   REJECTED
   REVIEWING
@@ -95,6 +116,8 @@ model Shop {
   name    String
   status  ShopStatus @default(INACTIVE)
   logoUrl         String?        @map("logo_url")
+  email   String?    @map("email") @unique
+  phoneNumber String? @map("phone_number") @unique
   
   // Address fields 
   street      String?
@@ -142,6 +165,7 @@ model Shop {
   // Relations
   owner    User       @relation("ShopOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   products Product[] // 1 shop có nhiều products
+  kycData  KycData[]
   
   @@map("shops")
   @@index([ownerId])
@@ -150,6 +174,99 @@ model Shop {
   @@index([city])
   @@index([createdAt])
   @@index([deletedAt])
+}
+
+model KycData{
+  id                String    @id @default(uuid())
+  status            KYCStatus @default(INCOMPLETE)
+  submittedAt       DateTime?
+  reviewedAt        DateTime?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  reviewerNote      String?
+  expiryDate        DateTime? // Ngày hết hạn KYC
+
+  // nguoi gui
+  fullName          String?
+  birthday          DateTime?
+  personalAddress   String?
+  personalPhone     String?
+  personalEmail     String?
+  identityCard      String? // Số CMND/CCCD
+
+  // shop
+  shopName      String?
+  taxCode       String?
+  shopAddress   String?
+  shopPhone     String?
+  shopEmail     String?
+  shopRegDate   DateTime? // Ngày đăng ký kinh doanh
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  shopId String
+
+  user      User          @relation(fields: [userId], references: [id])
+  shop      Shop          @relation(fields: [shopId], references: [id])
+  documents KycDocument[]
+  history   KycHistory[]
+
+  @@unique([shopId])
+  @@map("kyc_data")
+}
+
+model KycDocument{
+  id           String         @id @default(uuid())
+  type         DocumentType
+  status       DocumentStatus @default(PENDING)
+  fileName     String
+  fileUrl      String
+  fileSize     Int?
+  mimeType     String?
+  uploadedAt   DateTime       @default(now())
+  verifiedAt   DateTime?
+  rejectedAt   DateTime?
+  verifierNote String?        // Ghi chú của người xác minh
+  
+  // Foreign key
+  kycDataId String
+
+  // Relations
+  kycData KycData @relation(fields: [kycDataId], references: [id], onDelete: Cascade)
+
+  @@map("kyc_documents")
+}
+
+model KycHistory {
+  id          String    @id @default(uuid())
+  action      String    // CREATE, UPDATE, APPROVE, REJECT, etc.
+  oldStatus   KycStatus?
+  newStatus   KycStatus?
+  reason      String?
+  performedBy String?   // ID của người thực hiện
+  performedAt DateTime  @default(now())
+  metadata    Json?     // Thông tin bổ sung dạng JSON
+
+  kycDataId String
+
+  kycData KycData @relation(fields: [kycDataId], references: [id], onDelete: Cascade)
+
+  @@map("kyc_history")
+}
+
+model KycSettings {
+  id                    String   @id @default(uuid())
+  requiredDocuments     String[] // Array of DocumentType
+  kycExpiryDays        Int      @default(365) // KYC hết hạn sau bao nhiêu ngày
+  autoApprovalEnabled  Boolean  @default(false)
+  maxFileSize          Int      @default(10485760) // 10MB in bytes
+  allowedMimeTypes     String[] // ["image/jpeg", "image/png", "application/pdf"]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("kyc_settings")
 }
 
 // Product Management
