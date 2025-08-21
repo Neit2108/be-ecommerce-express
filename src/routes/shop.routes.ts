@@ -1,4 +1,3 @@
-import { RoleType } from './../../node_modules/.prisma/client/index.d';
 import { Router } from 'express';
 import {
   authenticateToken,
@@ -9,8 +8,7 @@ import {
 import { shopController } from '../controllers/shop.controller';
 import { combineMiddleware } from '../utils/middleware.util';
 import { UserStatus } from '../constants/status';
-import { Role } from '../constants/roles';
-import { PermissionAction, PermissionModule } from '@prisma/client';
+import { PermissionAction, PermissionModule, RoleType } from '@prisma/client';
 import { ActivityLogger } from '../services/logger.service';
 
 const router = Router();
@@ -27,7 +25,7 @@ router.post(
   shopController.createDraftShop
 );
 router.put(
-  '/:shopId/bank-account',
+  '/:id/bank-account',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
@@ -38,7 +36,7 @@ router.put(
   shopController.updateBankAccount
 );
 router.post(
-  '/:shopId/kyc',
+  '/:id/kyc',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
@@ -49,7 +47,7 @@ router.post(
   shopController.submitKyc
 );
 router.put(
-  '/:shopId/submit-approval',
+  '/:id/submit-approval',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
@@ -60,7 +58,7 @@ router.put(
   shopController.submitForApproval
 );
 router.put(
-  '/:shopId/approval',
+  '/:id/approval',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
@@ -71,7 +69,7 @@ router.put(
   shopController.approval
 );
 router.put(
-  '/:shopId/reject',
+  '/:id/reject',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),

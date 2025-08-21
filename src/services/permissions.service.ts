@@ -34,7 +34,7 @@ export interface UserWithPermissions {
 
 export class PermissionService {
   async getUserWithPermissions(userId: string) : Promise<UserWithPermissions | null>{
-    const cacheKey = `user_permissions_${userId}`;
+    const cacheKey = `user_permissions:${userId}`;
     try {
       const cached = await redis.get(cacheKey);
       if (cached) {

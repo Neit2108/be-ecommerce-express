@@ -22,15 +22,15 @@ export class ActivityLogger {
     req?: Request
   ) {
     try {
-      await prisma.UserActivity.create({
+      await prisma.userActivity.create({
         data: {
           userId,
           action,
           module,
-          resourceId,
-          metadata,
-          ip: req?.ip,
-          userAgent: req?.headers['user-agent'],
+          resourceId: resourceId !== undefined ? resourceId : null,
+          metadata: metadata !== undefined ? metadata : null,
+          ipAddress: req?.ip ?? null,
+          userAgent: req?.headers['user-agent'] ?? null,
         },
       });
     } catch (error) {

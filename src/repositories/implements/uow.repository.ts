@@ -13,6 +13,8 @@ import { IKycDataRepository } from '../interfaces/kyc.interface';
 import { IKycDocumentRepository } from '../interfaces/kycDoc.interface';
 import { KycDataRepository } from './kyc.repository';
 import { KycDocumentRepository } from './kycDoc.repository';
+import { IRoleRepository, IUserRoleRepository } from '../interfaces/role.interface';
+import { IRolePermissionRepository, IUserPermissionRepository } from '../interfaces/permission.interface';
 
 export class UnitOfWork implements IUnitOfWork {
   private isInTransaction = false;
@@ -24,6 +26,10 @@ export class UnitOfWork implements IUnitOfWork {
   private _productCategories: IProductCategoryRepository;
   private _kycDatas: IKycDataRepository;
   private _kycDocuments: IKycDocumentRepository;
+  private _roles: IRoleRepository;
+  private _userRoles: IUserRoleRepository;
+  private _rolePermissions: IRolePermissionRepository;
+  private _userPermissions: IUserPermissionRepository;
 
   constructor(private prisma: PrismaClient) {
     this._users = new UserRepository(this.prisma);
@@ -34,6 +40,10 @@ export class UnitOfWork implements IUnitOfWork {
     this._productCategories = new ProductCategoryRepository(this.prisma);
     this._kycDatas = new KycDataRepository(this.prisma);
     this._kycDocuments = new KycDocumentRepository(this.prisma);
+    this._roles = new RoleRepository(this.prisma);
+    this._userRoles = new UserRoleRepository(this.prisma);
+    this._rolePermissions = new RolePermissionRepository(this.prisma);
+    this._userPermissions = new UserPermissionRepository(this.prisma);
   }
 
   get users(): IUserRepository {
@@ -67,7 +77,23 @@ export class UnitOfWork implements IUnitOfWork {
   get kycDocuments(): IKycDocumentRepository {
     return this._kycDocuments;
   }
-  
+
+  get rolePermissions(): IRolePermissionRepository {
+    return this._rolePermissions;
+  }
+
+  get userPermissions(): IUserPermissionRepository {
+    return this._userPermissions;
+  }
+
+  get userRoles(): IUserRoleRepository {
+    return this._userRoles;
+  }
+
+  get roles(): IRoleRepository {
+    return this._roles;
+  }
+
   async executeInTransaction<T>(operation: (uow: IUnitOfWork) => Promise<T>): Promise<T> {
     if(this.isInTransaction){
       return await operation(this);
