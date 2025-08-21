@@ -1,6 +1,8 @@
 import { ApprovalStatus, Prisma, PrismaClient, Shop, ShopStatus } from "@prisma/client";
 import { IShopRepository } from "../interfaces/shop.interface";
-import { ShopFilters } from "../../types/shop.types";
+import { ShopFilters, ShopIncludes, ShopWithRelations } from '../../types/shop.types';
+import { DateUtils } from "../../utils/date.util";
+
 
 export class ShopRepository implements IShopRepository {
     constructor(private prisma: PrismaClient){}
@@ -12,16 +14,26 @@ export class ShopRepository implements IShopRepository {
         return shop;
     }
 
-    async findById(id: string): Promise<Shop | null> {
+    async findById(id: string): Promise<ShopWithRelations | null> {
         const shop = await this.prisma.shop.findUnique({
             where: { id },
+            include: {
+                owner: true,
+                currentKyc: true,
+                kycData: true,
+            },
         });
         return shop;
     }
 
-    async findByOwnerId(ownerId: string): Promise<Shop | null> {
+    async findByOwnerId(ownerId: string): Promise<ShopWithRelations | null> {
         const shop = await this.prisma.shop.findUnique({
             where: { ownerId, deletedAt: null },
+            include: {
+                owner: true,
+                currentKyc: true,
+                kycData: true,
+            },
         });
         return shop;
     }
@@ -250,11 +262,11 @@ export class ShopRepository implements IShopRepository {
     const shop = await this.prisma.shop.update({
       where: { id },
       data: {
-        totalRevenue: stats.totalRevenue ?? undefined,
-        totalOrders: stats.totalOrders ?? undefined,
-        rating: stats.rating ?? undefined,
-        reviewCount: stats.reviewCount ?? undefined,
-        updatedAt: new Date(),
+        totalRevenue: stats.totalRevenue ?? 0,
+        totalOrders: stats.totalOrders ?? 0,
+        rating: stats.rating ?? null,
+        reviewCount: stats.reviewCount ?? 0,
+        updatedAt: DateUtils.now(),
       },
     });
     return shop;

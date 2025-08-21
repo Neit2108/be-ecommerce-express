@@ -109,6 +109,48 @@ export class ShopController {
 
     res.json(response);
   }
+
+  approval = async (req: Request, res: Response) : Promise<void> => {
+    const {shopId} = req.params;
+    if (!shopId) {
+      throw new ValidationError('Không tìm thấy cửa hàng');
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new ValidationError('Không tìm thấy user');
+    }
+
+    const result = shopService.approveShop(shopId, userId);
+
+    const response: ApiResponse = {
+      success: true,
+      data: result,
+      message: "Đã xác nhận yêu cầu tạo shop"
+    }
+  }
+
+  reject = async (req: Request, res: Response) : Promise<void> => {
+    const {shopId} = req.params;
+    if (!shopId) {
+      throw new ValidationError('Không tìm thấy cửa hàng');
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new ValidationError('Không tìm thấy user');
+    }
+
+    const rejectionReason = req.body.rejectionReason;
+
+    const result = shopService.rejectShop(shopId, rejectionReason, userId);
+
+    const response: ApiResponse = {
+      success: true,
+      data: result,
+      message: "Đã từ chối yêu cầu tạo shop"
+    }
+  }
 }
 
 export const shopController = new ShopController();

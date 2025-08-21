@@ -1,12 +1,12 @@
 import { Shop, ShopStatus, Prisma, ApprovalStatus } from '@prisma/client';
-import { ShopFilters } from '../../types/shop.types';
+import { ShopFilters, ShopIncludes, ShopWithRelations } from '../../types/shop.types';
 import { Decimal } from '@prisma/client/runtime/library';
 
 export interface IShopRepository {
   // Basic CRUD
   create(data: Prisma.ShopCreateInput): Promise<Shop>;
-  findById(id: string): Promise<Shop | null>;
-  findByOwnerId(ownerId: string): Promise<Shop | null>;
+  findById(id: string, include?: ShopIncludes): Promise<ShopWithRelations | null>;
+  findByOwnerId(ownerId: string): Promise<ShopWithRelations | null>;
   update(id: string, data: Prisma.ShopUpdateInput): Promise<Shop>;
   softDelete(id: string, deletedBy: string): Promise<void>;
 

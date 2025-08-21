@@ -3,6 +3,7 @@ import {
   CreateDraftShopInput,
   UpdateBankAccountInput,
 } from '../types/shop.types';
+import { DocumentType } from '@prisma/client';
 
 export const createDraftShopSchema = Joi.object<CreateDraftShopInput>({
   name: Joi.string().trim().min(3).max(100).required().messages({
@@ -26,8 +27,7 @@ export const createDraftShopSchema = Joi.object<CreateDraftShopInput>({
       'string.empty': 'Số điện thoại không được để trống',
       'string.pattern.base': 'Số điện thoại không hợp lệ',
     }),
-  logoUrl: Joi.string().uri().required().messages({
-    'string.empty': 'URL logo không được để trống',
+  logoUrl: Joi.string().uri().optional().messages({
     'string.uri': 'URL logo không hợp lệ',
   }),
   street: Joi.string().trim().max(100).optional().messages({

@@ -1,4 +1,4 @@
-import { ShopStatus, ApprovalStatus, Shop, Prisma } from '@prisma/client';
+import { ShopStatus, ApprovalStatus, Shop, Prisma, DocumentType } from '@prisma/client';
 import { PaginationParams } from './common';
 
 export interface ShopFilters extends PaginationParams {
@@ -21,7 +21,7 @@ export interface ShopIncludes {
   kycData?: boolean;
 }
 
-export type ShopWithRelations = Prisma.ShopGetPayLoad<{
+export type ShopWithRelations = Prisma.ShopGetPayload<{
   include: {
     owner: true;
     currentKyc: true;

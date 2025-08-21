@@ -1,3 +1,4 @@
+import { ApprovalStatus, DocumentStatus, KycStatus } from '@prisma/client';
 import { NotFoundError } from '../errors/AppError';
 import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
 import { PaginationParams } from '../types/common';

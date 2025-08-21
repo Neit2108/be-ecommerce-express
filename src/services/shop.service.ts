@@ -1,4 +1,4 @@
-import { Shop, ApprovalStatus } from '@prisma/client';
+import { Shop, ApprovalStatus, ShopStatus, KycStatus } from '@prisma/client';
 import { NotFoundError, ValidationError } from '../errors/AppError';
 import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
 import {
@@ -36,15 +36,15 @@ export class ShopService {
         name: data.name,
         owner: { connect: { id: createdBy } },
         status: ShopStatus.DRAFT,
-        approvalStatus: ApprovalStatus.PENDING,
-        category: data.category,
-        email: data.email,
-        phoneNumber: data.phoneNumber,
-        logoUrl: data.logoUrl,
-        street: data.street,
-        ward: data.ward,
-        district: data.district,
-        city: data.city,
+        approvalStatus: ApprovalStatus.PENDING_APPROVAL,
+        category: data.category ?? null,
+        email: data.email ?? null,
+        phoneNumber: data.phoneNumber ?? null,
+        logoUrl: data.logoUrl ?? null,
+        street: data.street ?? null,
+        ward: data.ward ?? null,
+        district: data.district ?? null,
+        city: data.city ?? null,
         createdBy: createdBy,
         updatedBy: createdBy,
       });
@@ -77,8 +77,7 @@ export class ShopService {
       const updatedShop = await uow.shops.update(shopId, {
         bankName: data.bankName,
         bankAccount: data.bankAccount,
-        accountNumber: data.accountNumber,
-        taxCode: data.taxCode,
+        bankAccountNumber: data.accountNumber,
         updatedBy: updatedBy,
         updatedAt: DateUtils.now(),
       });
@@ -109,8 +108,8 @@ export class ShopService {
       }
 
       const kycData = await uow.kycDatas.create({
-        userId: updatedBy,
-        shopId,
+        user: { connect: { id: updatedBy } },
+        shop: { connect: { id: shopId } },
         status: KycStatus.PENDING,
         submittedAt: new Date(),
 
@@ -124,11 +123,11 @@ export class ShopService {
 
         // Shop info
         shopName: data.shopName,
-        taxCode: data.taxCode,
-        shopAddress: data.shopAddress,
-        shopPhone: data.shopPhone,
-        shopEmail: data.shopEmail,
-        shopRegDate: data.shopRegDate,
+        taxCode: data.taxCode ?? null,
+        shopAddress: data.shopAddress ?? null,
+        shopPhone: data.shopPhone ?? null,
+        shopEmail: data.shopEmail ?? null,
+        shopRegDate: data.shopRegDate ?? null,
       });
 
       for (const doc of data.documents) {
@@ -150,63 +149,73 @@ export class ShopService {
         documentsCount: data.documents.length,
       });
 
-      return {
-
-      } as KycResponse;
+      return {} as KycResponse;
     });
   }
 
-  async submitForApproval(shopId: string, userId: string) : Promise<ShopResponse>{
+  async submitForApproval(
+    shopId: string,
+    userId: string
+  ): Promise<ShopResponse> {
     return this.uow.executeInTransaction(async (uow) => {
-      const shop = await uow.shops.findById(shopId, {currentKyc: true});
-      if(!shop){
-        throw new NotFoundError("Shop với id : " + shopId);
+      const shop = await uow.shops.findById(shopId, { currentKyc: true });
+      if (!shop) {
+        throw new NotFoundError('Shop với id : ' + shopId);
       }
-      if(shop.ownerId !== userId){
-        throw new ValidationError("Bạn không có quyền của cửa hàng này");
-      }
-
-      if(!shop.currentKyc || shop.currentKyc.status !== KycStatus.APPROVED){
-        throw new ValidationError("Cần đính kèm tài liệu trước khi gửi");
+      if (shop.ownerId !== userId) {
+        throw new ValidationError('Bạn không có quyền của cửa hàng này');
       }
 
-      const updatedShop = await uow.shops.updateApprovalStatus(shopId, ApprovalStatus.REVIEWING);
+      if (!shop.currentKyc || shop.currentKyc.status !== KycStatus.APPROVED) {
+        throw new ValidationError('Cần đính kèm tài liệu trước khi gửi');
+      }
+
+      const updatedShop = await uow.shops.updateApprovalStatus(
+        shopId,
+        ApprovalStatus.REVIEWING
+      );
 
       return {
         id: shop.id,
         name: shop.name,
-      } as ShopResponse
+      } as ShopResponse;
     });
   }
 
-  async approveShop(shopId: string, approvedBy: string, autoActivate: boolean = true) : Promise<ShopResponse>{
+  async approveShop(
+    shopId: string,
+    approvedBy: string,
+    autoActivate: boolean = true
+  ): Promise<ShopResponse> {
     return this.uow.executeInTransaction(async (uow) => {
-      const shop = await uow.shops.findById(shopId, {currentKyc: true});
-      if(!shop){
-        throw new NotFoundError("Shop với id : " + shopId);
+      const shop = await uow.shops.findById(shopId, { currentKyc: true });
+      if (!shop) {
+        throw new NotFoundError('Shop với id : ' + shopId);
       }
 
-      if(!shop.currentKyc || shop.currentKyc.status !== KycStatus.APPROVED){
-        throw new ValidationError("Phải được xác thực Kyc trước");
+      if (!shop.currentKyc || shop.currentKyc.status !== KycStatus.APPROVED) {
+        throw new ValidationError('Phải được xác thực Kyc trước');
       }
 
       const updatedShop = await uow.shops.updateApprovalStatus(
         shopId,
         ApprovalStatus.APPROVED,
         approvedBy
-      )
+      );
 
-      if(autoActivate){
+      if (autoActivate) {
         await uow.shops.activate(shopId);
       }
 
-      return {
-
-      } as ShopResponse;
-    }); 
+      return {} as ShopResponse;
+    });
   }
 
-  async rejectShop(shopId: string, rejectionReason: string, rejectedBy: string) : Promise<ShopResponse>{
+  async rejectShop(
+    shopId: string,
+    rejectionReason: string,
+    rejectedBy: string
+  ): Promise<ShopResponse> {
     return this.uow.executeInTransaction(async (uow) => {
       const updatedShop = await uow.shops.updateApprovalStatus(
         shopId,
@@ -215,11 +224,7 @@ export class ShopService {
         rejectionReason
       );
 
-      return {
-
-      } as ShopResponse;
+      return {} as ShopResponse;
     });
   }
-
-  
 }

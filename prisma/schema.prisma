@@ -34,6 +34,7 @@ model Role{
   deletedBy   String?    @map("deleted_by")
 
   userRoles       UserRole[]
+  rolePermissions RolePermission[]
 
   @@map("roles")
   @@index([type])
@@ -87,7 +88,7 @@ model Permission {
   rolePermissions RolePermission[]
   userPermissions UserPermission[]
 
-  @@unique([module, action, resource])
+  @@unique([module, action])
   @@map("permissions")
   @@index([module])
   @@index([action])
@@ -135,7 +136,7 @@ model UserRole {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, roleId, shopId])
+  @@unique([userId, roleId])
   @@map("user_roles")
   @@index([userId])
   @@index([roleId])
@@ -161,7 +162,7 @@ model UserPermission {
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, permissionId, shopId])
+  @@unique([userId, permissionId])
   @@map("user_permissions")
   @@index([userId])
   @@index([permissionId])
@@ -183,7 +184,6 @@ model UserActivity {
   
   // Relations
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shop Shop? @relation(fields: [shopId], references: [id], onDelete: SetNull)
 
   @@map("user_activities")
   @@index([userId])
@@ -326,10 +326,15 @@ model Shop {
   autoApprove     Boolean        @default(false) @map("auto_approve") // tu xac nhan don hang
   
   // Approval
-  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  approvalStatus  ApprovalStatus @default(PENDING_APPROVAL) @map("approval_status")
   approvedBy      String?        @map("approved_by")
   approvedAt      DateTime?      @map("approved_at")
   rejectionReason String?        @map("rejection_reason")
+
+  // bank
+  bankName        String?        @map("bank_name")
+  bankAccount     String?        @map("bank_account")
+  bankAccountNumber String?      @unique @map("bank_account_number")
 
   // statistic
   totalRevenue    Decimal        @default(0) @map("total_revenue") @db.Decimal(15,2)
@@ -347,10 +352,9 @@ model Shop {
   deletedAt   DateTime?  @map("deleted_at")
   deletedBy   String?    @map("deleted_by") 
 
-  approvedBy      String?        @map("approved_by") // Should reference User
   approver        User?          @relation("ShopApprover", fields: [approvedBy], references: [id])
   
-  currentKycId    String?        @map("current_kyc_id")
+  currentKycId    String?        @unique @map("current_kyc_id")
   currentKyc      KycData?       @relation("CurrentKyc", fields: [currentKycId], references: [id])
 
   // Relations
@@ -400,7 +404,7 @@ model KycData{
   shopId String
 
   user      User          @relation(fields: [userId], references: [id])
-  shop      Shop          @relation(fields: [shopId], references: [id])
+  shop      Shop          @relation("ShopKyc", fields: [shopId], references: [id])
   currentShop Shop?       @relation("CurrentKyc")
   reviewerUserId String?   @map("reviewer_user_id")
   reviewer       User?     @relation("KycReviewer", fields: [reviewerUserId], references: [id])
@@ -518,6 +522,7 @@ model ProductVariant {
   currency    String        @default("VND") // For Money value object
   status      ProductStatus @map("product_status") @default(DRAFT)
   description String?
+  stock       Int           @default(0) 
   
   // Auditable fields
   createdAt   DateTime   @default(now()) @map("created_at")

@@ -1,3 +1,4 @@
+import { DocumentStatus, DocumentType, KycDocument, Prisma, PrismaClient } from "@prisma/client";
 import { IKycDocumentRepository } from "../interfaces/kycDoc.interface";
 
 export class KycDocumentRepository implements IKycDocumentRepository {
@@ -12,11 +13,11 @@ export class KycDocumentRepository implements IKycDocumentRepository {
   }
 
   async findByKycId(kycId: string): Promise<KycDocument[]> {
-    return this.prisma.kycDocument.findMany({ where: { kycId } });
+    return this.prisma.kycDocument.findMany({ where: { id: kycId } });
   }
 
   async findByType(kycId: string, type: DocumentType): Promise<KycDocument | null> {
-    return this.prisma.kycDocument.findFirst({ where: { kycId, type } });
+    return this.prisma.kycDocument.findFirst({ where: { id: kycId, type } });
   }
 
   async update(id: string, data: Prisma.KycDocumentUpdateInput): Promise<KycDocument> {
@@ -30,7 +31,7 @@ export class KycDocumentRepository implements IKycDocumentRepository {
   async updateStatus(id: string, status: DocumentStatus, verifierNote?: string): Promise<KycDocument> {
     return this.prisma.kycDocument.update({
       where: { id },
-      data: { status, verifierNote }
+      data: { status: status, verifierNote: verifierNote ?? null }
     });
   }
 
