@@ -15,6 +15,22 @@ import { PaginationParams } from '../types/common';
 export class ShopService {
   constructor(private uow: IUnitOfWork) {}
 
+  async findByOwnerId(ownerId: string): Promise<ShopResponse | null> {
+    const shop = await this.uow.shops.findByOwnerId(ownerId, {owner : true});
+    if (!shop) {
+      return null;
+    }
+
+    return {
+      id: shop.id,
+      name: shop.name,
+      owner: {
+        id: shop.owner.id,
+        name: shop.owner.firstName + " " + shop.owner.lastName,
+      }
+    } as ShopResponse;
+  }
+
   async createDraftShop(
     data: CreateDraftShopInput,
     createdBy: string

@@ -1,4 +1,7 @@
 import { createClient, RedisClientType } from 'redis';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 interface RedisConfig {
   host: string;
@@ -80,7 +83,8 @@ class Redis {
   // Get value by key
   public async get(key: string): Promise<string | null> {
     try {
-      return await this.client.get(key);
+      const result = await this.client.get(key);
+      return result;
     } catch (error) {
       console.error('❌ Redis lỗi GET:', error);
       throw error;

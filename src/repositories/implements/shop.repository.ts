@@ -1,126 +1,148 @@
-import { ApprovalStatus, Prisma, PrismaClient, Shop, ShopStatus } from "@prisma/client";
-import { IShopRepository } from "../interfaces/shop.interface";
-import { ShopFilters, ShopIncludes, ShopWithRelations } from '../../types/shop.types';
-import { DateUtils } from "../../utils/date.util";
-
+import {
+  ApprovalStatus,
+  Prisma,
+  PrismaClient,
+  Shop,
+  ShopStatus,
+} from '@prisma/client';
+import { IShopRepository } from '../interfaces/shop.interface';
+import {
+  ShopFilters,
+  ShopIncludes,
+  ShopWithRelations,
+} from '../../types/shop.types';
+import { DateUtils } from '../../utils/date.util';
 
 export class ShopRepository implements IShopRepository {
-    constructor(private prisma: PrismaClient){}
+  constructor(private prisma: PrismaClient) {}
 
-    async create(data: Prisma.ShopCreateInput): Promise<Shop> {
-        const shop = await this.prisma.shop.create({
-            data,
-        });
-        return shop;
-    }
+  async create(data: Prisma.ShopCreateInput): Promise<Shop> {
+    const shop = await this.prisma.shop.create({
+      data,
+    });
+    return shop;
+  }
 
-    async findById(id: string): Promise<ShopWithRelations | null> {
-        const shop = await this.prisma.shop.findUnique({
-            where: { id },
-            include: {
-                owner: true,
-                currentKyc: true,
-                kycData: true,
-            },
-        });
-        return shop;
-    }
+  async findById(
+    id: string,
+    include?: ShopIncludes
+  ): Promise<ShopWithRelations | null> {
+    const shop = await this.prisma.shop.findUnique({
+      where: { id },
+      include: {
+        owner: include?.owner ?? false,
+        products: include?.products ?? false,
+        currentKyc: include?.currentKyc ?? false,
+        kycData: include?.kycData ?? false,
+      },
+    });
+    return shop;
+  }
 
-    async findByOwnerId(ownerId: string): Promise<ShopWithRelations | null> {
-        const shop = await this.prisma.shop.findUnique({
-            where: { ownerId, deletedAt: null },
-            include: {
-                owner: true,
-                currentKyc: true,
-                kycData: true,
-            },
-        });
-        return shop;
-    }
+  async findByOwnerId(ownerId: string): Promise<ShopWithRelations | null> {
+    const shop = await this.prisma.shop.findUnique({
+      where: { ownerId, deletedAt: null },
+      include: {
+        owner: true,
+        currentKyc: true,
+        kycData: true,
+      },
+    });
+    return shop;
+  }
 
-    async update(id: string, data: Prisma.ShopUpdateInput): Promise<Shop> {
-        const shop = await this.prisma.shop.update({
-            where: { id },
-            data: {
-                ...data,
-                updatedAt: new Date(),
-            },
-        });
-        return shop;
-    }
+  async update(id: string, data: Prisma.ShopUpdateInput): Promise<Shop> {
+    const shop = await this.prisma.shop.update({
+      where: { id },
+      data: {
+        ...data,
+        updatedAt: new Date(),
+      },
+    });
+    return shop;
+  }
 
-    async softDelete(id: string, deletedBy: string): Promise<void> {
-        await this.prisma.shop.update({
-            where: { id },
-            data: {
-                deletedAt: new Date(),
-                deletedBy,
-                updatedAt: new Date(),
-            },
-        });
-    }
+  async softDelete(id: string, deletedBy: string): Promise<void> {
+    await this.prisma.shop.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedBy,
+        updatedAt: new Date(),
+      },
+    });
+  }
 
-    async findMany(filters: ShopFilters): Promise<Shop[]> {
-        const {page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', ...whereFilters} = filters;
-        
-        const where: Prisma.ShopWhereInput = {
-            deletedAt: null,
-            ...(whereFilters.status && { status: whereFilters.status }),
-            ...(whereFilters.city && {
-                city: {
-                    contains: whereFilters.city,
-                    mode: 'insensitive',
-                }
-            }),
-            ...(whereFilters.name && {
-                name: {
-                    contains: whereFilters.name,
-                    mode: 'insensitive',
-                }
-            }),
-            ...(whereFilters.approvalStatus && { approvalStatus: whereFilters.approvalStatus }),
-            ...(whereFilters.category && { category: whereFilters.category }),
-            ...(whereFilters.isVerified !== undefined && { isVerified: whereFilters.isVerified }),
-            ...(whereFilters.location && { location: whereFilters.location }),
-            
-        };
+  async findMany(filters: ShopFilters): Promise<Shop[]> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      ...whereFilters
+    } = filters;
 
-        const orderBy: Prisma.ShopOrderByWithRelationInput = {
-            [sortBy]: sortOrder
-        }
+    const where: Prisma.ShopWhereInput = {
+      deletedAt: null,
+      ...(whereFilters.status && { status: whereFilters.status }),
+      ...(whereFilters.city && {
+        city: {
+          contains: whereFilters.city,
+          mode: 'insensitive',
+        },
+      }),
+      ...(whereFilters.name && {
+        name: {
+          contains: whereFilters.name,
+          mode: 'insensitive',
+        },
+      }),
+      ...(whereFilters.approvalStatus && {
+        approvalStatus: whereFilters.approvalStatus,
+      }),
+      ...(whereFilters.category && { category: whereFilters.category }),
+      ...(whereFilters.isVerified !== undefined && {
+        isVerified: whereFilters.isVerified,
+      }),
+      ...(whereFilters.location && { location: whereFilters.location }),
+    };
 
-        const skip = (page - 1) * limit;
+    const orderBy: Prisma.ShopOrderByWithRelationInput = {
+      [sortBy]: sortOrder,
+    };
 
-        const shops = await this.prisma.shop.findMany({
-            where,
-            orderBy,
-            skip,
-            take: limit,
-        });
+    const skip = (page - 1) * limit;
 
-        return shops;
-    }
+    const shops = await this.prisma.shop.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+    });
 
-    async count(filters?: ShopFilters): Promise<number> {
+    return shops;
+  }
+
+  async count(filters?: ShopFilters): Promise<number> {
     const where: Prisma.ShopWhereInput = {
       deletedAt: null,
       ...(filters?.status && { status: filters.status }),
-      ...(filters?.city && { 
+      ...(filters?.city && {
         city: {
           contains: filters.city,
-          mode: 'insensitive'
-        }
+          mode: 'insensitive',
+        },
       }),
       ...(filters?.name && {
         name: {
           contains: filters.name,
-          mode: 'insensitive'
-        }
-      })
+          mode: 'insensitive',
+        },
+      }),
     };
 
     return this.prisma.shop.count({
-      where
+      where,
     });
   }
 
@@ -128,12 +150,17 @@ export class ShopRepository implements IShopRepository {
     return this.prisma.shop.count({
       where: {
         status,
-        deletedAt: null
-      }
+        deletedAt: null,
+      },
     });
   }
 
-  async updateApprovalStatus(shopId: string, status: ApprovalStatus, approvedBy?: string, reason?: string): Promise<Shop> {
+  async updateApprovalStatus(
+    shopId: string,
+    status: ApprovalStatus,
+    approvedBy?: string,
+    reason?: string
+  ): Promise<Shop> {
     const shop = await this.prisma.shop.update({
       where: { id: shopId },
       data: {
@@ -147,11 +174,24 @@ export class ShopRepository implements IShopRepository {
   }
 
   async approve(shopId: string, approvedBy: string): Promise<Shop> {
-    return this.updateApprovalStatus(shopId, ApprovalStatus.APPROVED, approvedBy);
+    return this.updateApprovalStatus(
+      shopId,
+      ApprovalStatus.APPROVED,
+      approvedBy
+    );
   }
 
-  async reject(shopId: string, rejectedBy: string, reason: string): Promise<Shop> {
-    return this.updateApprovalStatus(shopId, ApprovalStatus.REJECTED, rejectedBy, reason);
+  async reject(
+    shopId: string,
+    rejectedBy: string,
+    reason: string
+  ): Promise<Shop> {
+    return this.updateApprovalStatus(
+      shopId,
+      ApprovalStatus.REJECTED,
+      rejectedBy,
+      reason
+    );
   }
 
   async updateCurrentKyc(shopId: string, kycId: string): Promise<Shop> {
@@ -247,7 +287,11 @@ export class ShopRepository implements IShopRepository {
     });
   }
 
-  async updateRating(id: string, newRating: Prisma.Decimal, reviewCount: number): Promise<void> {
+  async updateRating(
+    id: string,
+    newRating: Prisma.Decimal,
+    reviewCount: number
+  ): Promise<void> {
     await this.prisma.shop.update({
       where: { id },
       data: {
@@ -258,7 +302,15 @@ export class ShopRepository implements IShopRepository {
     });
   }
 
-  async updateStatistics(id: string, stats: { totalRevenue?: number; totalOrders?: number; rating?: number; reviewCount?: number; }): Promise<Shop> {
+  async updateStatistics(
+    id: string,
+    stats: {
+      totalRevenue?: number;
+      totalOrders?: number;
+      rating?: number;
+      reviewCount?: number;
+    }
+  ): Promise<Shop> {
     const shop = await this.prisma.shop.update({
       where: { id },
       data: {
@@ -271,5 +323,4 @@ export class ShopRepository implements IShopRepository {
     });
     return shop;
   }
-
 }

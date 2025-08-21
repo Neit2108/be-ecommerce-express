@@ -14,9 +14,9 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 export const testDatabaseConnection = async (): Promise<void> => {
   try {
     await prisma.$connect();
-    console.log('✅ Kết nối cơ sở dữ liệu Prisma thành công');
+    console.log('✅ Kết nối cơ sở dữ liệu thành công');
   } catch (error) {
-    console.error('❌ Kết nối cơ sở dữ liệu Prisma thất bại:', error);
+    console.error('❌ Kết nối cơ sở dữ liệu thất bại:', error);
     throw error;
   }
 };
@@ -24,5 +24,5 @@ export const testDatabaseConnection = async (): Promise<void> => {
 // Graceful shutdown
 export const disconnectDatabase = async (): Promise<void> => {
   await prisma.$disconnect();
-  console.log('Đã ngắt kết nối cơ sở dữ liệu Prisma');
+  console.log('Đã ngắt kết nối cơ sở dữ liệu');
 };

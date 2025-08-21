@@ -49,7 +49,7 @@ export const globalErrorHandler = (
   if (err instanceof SyntaxError && 'body' in err) {
     const response: ApiResponse = {
       success: false,
-      error: 'Invalid JSON format',
+      error: 'Không thể chuyển sang JSON',
       code: 'INVALID_JSON',
     };
 

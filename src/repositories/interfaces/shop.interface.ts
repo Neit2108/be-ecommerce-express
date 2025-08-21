@@ -6,7 +6,7 @@ export interface IShopRepository {
   // Basic CRUD
   create(data: Prisma.ShopCreateInput): Promise<Shop>;
   findById(id: string, include?: ShopIncludes): Promise<ShopWithRelations | null>;
-  findByOwnerId(ownerId: string): Promise<ShopWithRelations | null>;
+  findByOwnerId(ownerId: string, include?: ShopIncludes): Promise<ShopWithRelations | null>;
   update(id: string, data: Prisma.ShopUpdateInput): Promise<Shop>;
   softDelete(id: string, deletedBy: string): Promise<void>;
 

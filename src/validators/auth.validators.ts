@@ -1,7 +1,7 @@
 import Joi from 'joi';
 
 const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-const nameRegex = /^[a-zA-ZÀ-ÿ\s'-]+$/;
+const nameRegex = /^[\p{L}\s'-]+$/u;
 
 export const registerSchema = Joi.object({
   email: Joi.string()

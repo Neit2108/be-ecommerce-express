@@ -1,0 +1,7 @@
+export enum Role {
+  ADMIN = 'SYSTEM_ADMIN',
+  CUSTOMER = 'CUSTOMER',
+  SELLER = 'SELLER',
+  GUEST = 'GUEST',
+  KYC_REVIEWER = 'KYC_REVIEWER'
+}

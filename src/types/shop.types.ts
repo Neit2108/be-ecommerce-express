@@ -46,6 +46,10 @@ export interface ShopResponse{
   name: string;
   category?: string;
   logoUrl?: string;
+  owner?: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface UpdateBankAccountInput {

@@ -304,7 +304,7 @@ model Shop {
   // Primary fields
   id      String     @id @default(uuid())
   ownerId String     @map("owner_id") @unique
-  name    String
+  name    String     @unique
   status  ShopStatus @default(INACTIVE)
   logoUrl         String?        @map("logo_url")
   email   String?    @map("email") @unique
@@ -315,7 +315,7 @@ model Shop {
   ward        String?
   district       String?
   city  String?  
-  country     String @default("Vietnamese")
+  country     String @default("Việt Nam")
 
   // Business config
   category    String? // bán gì ? Quần áo, giày dép, công nghệ...
@@ -334,7 +334,7 @@ model Shop {
   // bank
   bankName        String?        @map("bank_name")
   bankAccount     String?        @map("bank_account")
-  bankAccountNumber String?      @unique @map("bank_account_number")
+  bankAccountNumber String?      @map("bank_account_number")
 
   // statistic
   totalRevenue    Decimal        @default(0) @map("total_revenue") @db.Decimal(15,2)
@@ -363,6 +363,7 @@ model Shop {
   kycData  KycData[]  @relation("ShopKyc")
   
   @@map("shops")
+  @@unique([bankName, bankAccountNumber])
   @@index([ownerId])
   @@index([status])
   @@index([name])

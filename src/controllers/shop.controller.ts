@@ -1,7 +1,11 @@
 import { Request, Response } from 'express';
 import { ValidationError } from '../errors/AppError';
 import { shopService } from '../config/container';
-import { createDraftShopSchema, submitKycSchema, updateBankAccountSchema } from '../validators/shop.validator';
+import {
+  createDraftShopSchema,
+  submitKycSchema,
+  updateBankAccountSchema,
+} from '../validators/shop.validator';
 import { ApiResponse } from '../types/common';
 
 export class ShopController {
@@ -18,6 +22,11 @@ export class ShopController {
     if (!userId) {
       throw new ValidationError('Không tìm thấy user');
     }
+
+    // const status = req.user?.status;
+    // if (status?.toLowerCase() !== 'active') {
+    //   throw new ValidationError('User không hoạt động');
+    // }
 
     const result = await shopService.createDraftShop(value, userId);
 
@@ -49,6 +58,11 @@ export class ShopController {
       throw new ValidationError('Không tìm thấy user');
     }
 
+    // const status = req.user?.status;
+    // if (status?.toLowerCase() !== 'active') {
+    //   throw new ValidationError('User không hoạt động');
+    // }
+
     const result = await shopService.updateBankAccount(shopId, value, userId);
 
     const response: ApiResponse = {
@@ -77,6 +91,11 @@ export class ShopController {
       throw new ValidationError('Không tìm thấy user');
     }
 
+    // const status = req.user?.status;
+    // if (status?.toLowerCase() !== 'active') {
+    //   throw new ValidationError('User không hoạt động');
+    // }
+
     const result = await shopService.submitKyc(shopId, value, userId);
 
     const response: ApiResponse = {
@@ -99,6 +118,11 @@ export class ShopController {
       throw new ValidationError('Không tìm thấy user');
     }
 
+    // const status = req.user?.status;
+    // if (status?.toLowerCase() !== 'active') {
+    //   throw new ValidationError('User không hoạt động');
+    // }
+
     const result = await shopService.submitForApproval(shopId, userId);
 
     const response: ApiResponse = {
@@ -108,10 +132,10 @@ export class ShopController {
     };
 
     res.json(response);
-  }
+  };
 
-  approval = async (req: Request, res: Response) : Promise<void> => {
-    const {shopId} = req.params;
+  approval = async (req: Request, res: Response): Promise<void> => {
+    const { shopId } = req.params;
     if (!shopId) {
       throw new ValidationError('Không tìm thấy cửa hàng');
     }
@@ -120,18 +144,23 @@ export class ShopController {
     if (!userId) {
       throw new ValidationError('Không tìm thấy user');
     }
+
+    // const status = req.user?.status;
+    // if (status?.toLowerCase() !== 'active') {
+    //   throw new ValidationError('User không hoạt động');
+    // }
 
     const result = shopService.approveShop(shopId, userId);
 
     const response: ApiResponse = {
       success: true,
       data: result,
-      message: "Đã xác nhận yêu cầu tạo shop"
-    }
-  }
+      message: 'Đã xác nhận yêu cầu tạo shop',
+    };
+  };
 
-  reject = async (req: Request, res: Response) : Promise<void> => {
-    const {shopId} = req.params;
+  reject = async (req: Request, res: Response): Promise<void> => {
+    const { shopId } = req.params;
     if (!shopId) {
       throw new ValidationError('Không tìm thấy cửa hàng');
     }
@@ -140,6 +169,11 @@ export class ShopController {
     if (!userId) {
       throw new ValidationError('Không tìm thấy user');
     }
+
+    // const status = req.user?.status;
+    // if (status?.toLowerCase() !== 'active') {
+    //   throw new ValidationError('User không hoạt động');
+    // }
 
     const rejectionReason = req.body.rejectionReason;
 
@@ -148,9 +182,9 @@ export class ShopController {
     const response: ApiResponse = {
       success: true,
       data: result,
-      message: "Đã từ chối yêu cầu tạo shop"
-    }
-  }
+      message: 'Đã từ chối yêu cầu tạo shop',
+    };
+  };
 }
 
 export const shopController = new ShopController();

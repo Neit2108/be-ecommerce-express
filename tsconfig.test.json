@@ -1,7 +1,8 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["jest", "node", "supertest"]
+    "types": ["jest", "node", "supertest"],
+    "rootDir": "./"
   },
   "include": ["src/**/*", "tests/**/*"]
 }

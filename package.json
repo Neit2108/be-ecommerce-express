@@ -16,6 +16,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "dev:http": "cross-env ENABLE_HTTPS=false nodemon src/index.ts",
     "dev": "nodemon src/index.ts",
+    "debug": "nodemon --inspect-brk src/index.ts",
     "test": "jest --passWithNoTests --detectOpenHandles",
     "test:watch": "jest --watchAll",
     "test:cov": "jest --coverage",

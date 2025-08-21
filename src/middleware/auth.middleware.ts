@@ -3,16 +3,21 @@ import { JwtUtils } from '../utils/jwt.util';
 import { prisma } from '../config/prisma';
 import { ApiResponse } from '../types/common';
 import { JwtPayload } from '../types/auth.types';
+import {
+  PermissionModule,
+  PermissionAction,
+  RoleType,
+  UserStatus,
+} from '@prisma/client';
+import { permissionService } from '../config/container';
+import { UserWithPermissions } from '../services/permissions.service';
 
 // Extend Request interface to include user
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        id: string;
-        email: string;
-        status: string;
-      };
+      user?: UserWithPermissions;
+      permissions?: Set<string>;
     }
   }
 }
@@ -56,12 +61,7 @@ export const authenticateToken = async (
     }
 
     // Check if user still exists and is not deleted
-    const user = await prisma.user.findFirst({
-      where: {
-        id: payload.userId,
-        deletedAt: null,
-      },
-    });
+    const user = await permissionService.getUserWithPermissions(payload.userId);
 
     if (!user) {
       const response: ApiResponse = {
@@ -85,11 +85,8 @@ export const authenticateToken = async (
     }
 
     // Attach user to request
-    req.user = {
-      id: user.id,
-      email: user.email,
-      status: user.status,
-    };
+    req.user = user;
+    req.permissions = permissionService.calculateEffectivePermissions(user);
 
     next();
   } catch (error) {
@@ -105,6 +102,8 @@ export const authenticateToken = async (
 /**
  * Kiem tra xác thực tùy chọn
  * Nếu có token, xác thực và gán người dùng vào req.user
+ * Nếu không có token, cho phép tiếp tục mà không gán người dùng
+ * Dùng cho public api
  */
 export const optionalAuth = async (
   req: Request,
@@ -122,29 +121,248 @@ export const optionalAuth = async (
 
     try {
       const payload = JwtUtils.verifyAccessToken(token);
-      
-      const user = await prisma.user.findFirst({
-        where: {
-          id: payload.userId,
-          deletedAt: null,
-        },
-      });
+
+      const user = await permissionService.getUserWithPermissions(
+        payload.userId
+      );
 
       if (user && user.status !== 'BANNED' && user.status !== 'SUSPENDED') {
-        req.user = {
-          id: user.id,
-          email: user.email,
-          status: user.status,
-        };
+        req.user = user;
+        req.permissions = permissionService.calculateEffectivePermissions(user);
       }
-    } catch (error) {
-      // Ignore token errors in optional auth
-    }
+    } catch (error) {}
 
     next();
   } catch (error) {
     next();
   }
+};
+
+/**
+ * Kiểm tra role
+ * @param requiredRoles Roles yêu cầu
+ * @returns
+ */
+export const requireRole = (...requiredRoles: RoleType[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Xác thực yêu cầu',
+        code: 'AUTH_REQUIRED',
+      };
+      res.status(401).json(response);
+      return;
+    }
+
+    const userRoles = req.user.roles.map((r) => r.type);
+    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+
+    if (!hasRole) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Quyền truy cập không đủ',
+        code: 'INSUFFICIENT_ROLE_PERMISSIONS',
+        data: {
+          required: requiredRoles,
+          current: userRoles,
+        },
+      };
+      res.status(403).json(response);
+      return;
+    }
+
+    next();
+  };
+};
+
+/**
+ * Kiểm tra permission
+ * @param module
+ * @param action
+ * @returns
+ */
+export const requirePermission = (
+  module: PermissionModule,
+  action: PermissionAction
+) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user || !req.permissions) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Xác thực yêu cầu',
+        code: 'AUTH_REQUIRED',
+      };
+      res.status(401).json(response);
+      return;
+    }
+
+    const hasPermission = permissionService.hasPermission(
+      req.permissions,
+      module,
+      action
+    );
+
+    if (!hasPermission) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Quyền truy cập không đủ',
+        code: 'INSUFFICIENT_PERMISSIONS',
+        data: {
+          required: `${module}:${action}`,
+          available: Array.from(req.permissions),
+        },
+      };
+      res.status(403).json(response);
+      return;
+    }
+
+    next();
+  };
+};
+
+/**
+ * Kiểm tra một trong các permissions
+ * @param perms
+ * @returns
+ */
+export const requireAnyPermission = (
+  ...perms: Array<[PermissionModule, PermissionAction]>
+) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user || !req.permissions) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Xác thực yêu cầu',
+        code: 'AUTH_REQUIRED',
+      };
+      res.status(401).json(response);
+      return;
+    }
+
+    const hasAnyPermission = perms.some(([module, action]) =>
+      permissionService.hasPermission(req.permissions!, module, action)
+    );
+
+    if (!hasAnyPermission) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Quyền truy cập không đủ',
+        code: 'INSUFFICIENT_PERMISSIONS',
+        data: {
+          required_any: perms.map(([m, a]) => `${m}:${a}`),
+          available: Array.from(req.permissions),
+        },
+      };
+      res.status(403).json(response);
+      return;
+    }
+
+    next();
+  };
+};
+
+/**
+ * Kiểm tra tất cả permissions
+ * @param perms
+ * @returns
+ */
+export const requireAllPermissions = (
+  ...perms: Array<[PermissionModule, PermissionAction]>
+) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user || !req.permissions) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Xác thực yêu cầu',
+        code: 'AUTH_REQUIRED',
+      };
+      res.status(401).json(response);
+      return;
+    }
+
+    const missingPermissions = perms.filter(
+      ([module, action]) =>
+        !permissionService.hasPermission(req.permissions!, module, action)
+    );
+
+    if (missingPermissions.length > 0) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Quyền truy cập không đủ',
+        code: 'INSUFFICIENT_PERMISSIONS',
+        data: {
+          missing: missingPermissions.map(([m, a]) => `${m}:${a}`),
+          available: Array.from(req.permissions),
+        },
+      };
+      res.status(403).json(response);
+      return;
+    }
+
+    next();
+  };
+};
+
+/**
+ * Kiểm tra quyền sở hữu tài nguyên
+ */
+export const requireOwnership = (
+  getResourceOwnerId: (req: Request) => Promise<string | null>
+) => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    if (!req.user) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Xác thực yêu cầu',
+        code: 'AUTH_REQUIRED',
+      };
+      res.status(401).json(response);
+      return;
+    }
+
+    try {
+      const resourceOwnerId = await getResourceOwnerId(req);
+
+      if (!resourceOwnerId) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Không tìm thấy tài nguyên',
+          code: 'RESOURCE_NOT_FOUND',
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      // Kiểm tra ownership hoặc admin privilege
+      const isOwner = resourceOwnerId === req.user.id;
+      const isAdmin = req.user.roles.some((r) => r.type === 'SYSTEM_ADMIN');
+
+      if (!isOwner && !isAdmin) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Không có quyền truy cập tài nguyên này',
+          code: 'ACCESS_DENIED',
+        };
+        res.status(403).json(response);
+        return;
+      }
+
+      next();
+    } catch (error) {
+      console.error('Ownership check error:', error);
+      const response: ApiResponse = {
+        success: false,
+        error: 'Kiểm tra quyền sở hữu thất bại',
+        code: 'OWNERSHIP_CHECK_FAILED',
+      };
+      res.status(500).json(response);
+    }
+  };
 };
 
 /**

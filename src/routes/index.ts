@@ -14,7 +14,13 @@ router.get('/', (req, res) => {
     data: {
       message: 'Express.js + Prisma + JWT Authentication API',
       version: '1.0.0',
-      endpoints: { auth: '/api/auth', health: '/health' },
+      endpoints: {
+        auth: '/api/auth',
+        health: '/health',
+        users: '/api/users',
+        products: '/api/products',
+        shops: '/api/shops',
+      },
     },
   });
 });
