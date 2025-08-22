@@ -383,8 +383,8 @@ export const requireStatus = (allowedStatuses: string[]) => {
     if (!allowedStatuses.includes(req.user.status)) {
       const response: ApiResponse = {
         success: false,
-        error: 'Quyền truy cập không đủ',
-        code: 'INSUFFICIENT_PERMISSIONS',
+        error: 'Người dùng chưa được kích hoạt',
+        code: 'USER_NOT_ACTIVATED',
       };
       res.status(403).json(response);
       return;

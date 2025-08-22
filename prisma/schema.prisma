@@ -19,7 +19,7 @@ enum RoleType{
 model Role{
   id          String   @id @default(uuid())
   name        String   @unique
-  type        RoleType
+  type        RoleType  @unique
   description String?
   isActive    Boolean  @default(true) @map("is_active")
   
@@ -48,6 +48,7 @@ enum PermissionModule {
   SHOP_MANAGEMENT
   PRODUCT_MANAGEMENT
   ORDER_MANAGEMENT
+  CART_MANAGEMENT
   KYC_MANAGEMENT
   CATEGORY_MANAGEMENT
   SYSTEM_SETTINGS
@@ -247,6 +248,7 @@ model User {
 
   // relation
   shop Shop? @relation("ShopOwner")
+  cart          Cart?  
   approvedShops Shop[]     @relation("ShopApprover") 
   reviewedKycs  KycData[]  @relation("KycReviewer")
   kycData       KycData[]
@@ -502,6 +504,7 @@ model Product {
   images   ProductImage[]
   options  ProductOption[]
   categories ProductCategory[]
+  cartItems     CartItem[]
   
   @@map("products")
   @@index([shopId])
@@ -539,6 +542,7 @@ model ProductVariant {
   product      Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
   images       ProductImage[]
   optionValues ProductVariantOptionValue[]
+  cartItems     CartItem[]
   
   @@map("product_variants")
   @@index([productId])
@@ -731,4 +735,65 @@ model ProductCategory {
   @@index([categoryId])
   @@index([createdAt])
   @@index([deletedAt])
+}
+
+model Cart{
+  id        String     @id @default(uuid())
+  userId    String?    @map("user_id") // null cho guest user
+  sessionId String?    @map("session_id") // Cho guest user
+
+  // 
+  totalItems    Int     @default(0) @map("total_items")
+  totalAmount   Decimal @default(0) @map("total_amount") @db.Decimal(15,2)
+  currency      String  @default("VND")
+
+  expiresAt     DateTime? @map("expires_at") // Thời gian hết hạn cho guest cart
+  lastActiveAt  DateTime  @default(now()) @map("last_active_at")
+  
+  // 
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  
+  // 
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  
+  @@map("carts")
+  @@unique([userId]) 
+  @@index([userId])
+  @@index([sessionId])
+  @@index([expiresAt])
+  @@index([lastActiveAt])
+}
+
+model CartItem {
+  id               String  @id @default(uuid())
+  cartId           String  @map("cart_id")
+  productId        String  @map("product_id")
+  productVariantId String  @map("product_variant_id")
+  quantity         Int     @default(1)
+  
+  // Snapshot
+  unitPrice        Decimal @map("unit_price") @db.Decimal(10,2)
+  totalPrice       Decimal @map("total_price") @db.Decimal(10,2)
+  
+  // snapshot (để hiển thị khi sản phẩm xóa)
+  productName      String  @map("product_name")
+  variantName      String? @map("variant_name")
+  productImageUrl  String? @map("product_image_url")
+  
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  
+  // 
+  cart           Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  
+  @@map("cart_items")
+  @@unique([cartId, productVariantId]) // Không cho trùng variant
+  @@index([cartId])
+  @@index([productId])
+  @@index([productVariantId])
+  @@index([createdAt])
 }

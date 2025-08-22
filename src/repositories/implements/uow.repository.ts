@@ -14,7 +14,9 @@ import { IKycDocumentRepository } from '../interfaces/kycDoc.interface';
 import { KycDataRepository } from './kyc.repository';
 import { KycDocumentRepository } from './kycDoc.repository';
 import { IRoleRepository, IUserRoleRepository } from '../interfaces/role.interface';
-import { IRolePermissionRepository, IUserPermissionRepository } from '../interfaces/permission.interface';
+import { IPermissionRepository, IRolePermissionRepository, IUserPermissionRepository } from '../interfaces/permission.interface';
+import { RoleRepository, UserRoleRepository } from './role.repository';
+import { PermissionRepository, RolePermissionRepository, UserPermissionRepository } from './permission.repository';
 
 export class UnitOfWork implements IUnitOfWork {
   private isInTransaction = false;
@@ -30,6 +32,7 @@ export class UnitOfWork implements IUnitOfWork {
   private _userRoles: IUserRoleRepository;
   private _rolePermissions: IRolePermissionRepository;
   private _userPermissions: IUserPermissionRepository;
+  private _permissions: IPermissionRepository;
 
   constructor(private prisma: PrismaClient) {
     this._users = new UserRepository(this.prisma);
@@ -41,6 +44,7 @@ export class UnitOfWork implements IUnitOfWork {
     this._kycDatas = new KycDataRepository(this.prisma);
     this._kycDocuments = new KycDocumentRepository(this.prisma);
     this._roles = new RoleRepository(this.prisma);
+    this._permissions = new PermissionRepository(this.prisma);
     this._userRoles = new UserRoleRepository(this.prisma);
     this._rolePermissions = new RolePermissionRepository(this.prisma);
     this._userPermissions = new UserPermissionRepository(this.prisma);
@@ -92,6 +96,10 @@ export class UnitOfWork implements IUnitOfWork {
 
   get roles(): IRoleRepository {
     return this._roles;
+  }
+
+  get permissions(): IPermissionRepository{
+    return this._permissions;
   }
 
   async executeInTransaction<T>(operation: (uow: IUnitOfWork) => Promise<T>): Promise<T> {

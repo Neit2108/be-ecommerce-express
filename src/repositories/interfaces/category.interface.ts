@@ -2,12 +2,6 @@ import { Category, Prisma, Product, ProductCategory } from '@prisma/client';
 import { CategoryFilters, CategoryIncludes } from '../../types/category.types';
 import { PaginationParams } from '../../types/common';
 
-// export type CategoryWithRelations = Category & {
-//   parentCategory?: Category;
-//   childCategories?: Category[];
-//   products?: ProductCategory[];
-// };
-
 export type CategoryWithRelations = Prisma.CategoryGetPayload<{
   include: {
     parentCategory: true;

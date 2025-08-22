@@ -1,4 +1,4 @@
-import { UserStatus, Prisma, Gender } from '@prisma/client';
+import { UserStatus, Prisma, Gender, RoleType } from '@prisma/client';
 import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
 import { PasswordUtils } from '../utils/password.util';
 import { DateUtils } from '../utils/date.util';
@@ -180,6 +180,16 @@ export class UserService {
         gender: data.gender || null,
         avatarUrl: null,
         status: data.status || UserStatus.ACTIVE,
+        roles: {
+          create: [
+            {
+              role: {
+                connect: { type: RoleType.CUSTOMER }
+              },
+              createdBy: "system"
+            },
+          ],
+        },
       });
 
       return this.excludeSensitiveData(user);
@@ -249,7 +259,7 @@ export class UserService {
 
       const updateData: Prisma.UserUpdateInput = {
         updatedAt: DateUtils.now(),
-        updatedBy: existingUser.id
+        updatedBy: existingUser.id,
       };
 
       if (data.email) updateData.email = data.email.toLowerCase();

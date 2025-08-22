@@ -34,17 +34,17 @@ class Redis {
 
     // Event: error
     this.client.on('error', (err) => {
-      console.error('❌ Redis error:', err);
+      console.error('❌ Lỗi kết nối redis:', err);
     });
 
     // Event: ready (client sẵn sàng)
     this.client.on('ready', () => {
-      console.log('✅ Redis client is ready');
+      console.log('✅ Kết nối redis thành công');
     });
 
     // Event: end (ngắt kết nối)
     this.client.on('end', () => {
-      console.log('✅ Redis connection closed');
+      console.log('✅ Kết nối redis đã ngắt');
     });
   }
 
@@ -125,7 +125,7 @@ class Redis {
   // Close Redis connection
   public async disconnect(): Promise<void> {
     await this.client.destroy();
-    console.log('Redis client disconnected');
+    console.log('Đã ngắt kết nối redis');
   }
 }
 
