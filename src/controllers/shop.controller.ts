@@ -7,47 +7,141 @@ import {
   updateBankAccountSchema,
 } from '../validators/shop.validator';
 import { ApiResponse } from '../types/common';
+import { asyncHandler } from '../middleware/errorHandler';
 
 export class ShopController {
-  createDraftShop = async (req: Request, res: Response): Promise<void> => {
-    const { error, value } = createDraftShopSchema.validate(req.body);
+  createDraftShop = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const { error, value } = createDraftShopSchema.validate(req.body);
+      if (error) {
+        throw new ValidationError(
+          error.details?.[0]?.message || 'Validation error'
+        );
+      }
 
-    if (error) {
-      throw new ValidationError(
-        error.details?.[0]?.message || 'Validation error'
-      );
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new ValidationError('Không tìm thấy user');
+      }
+
+      const result = await shopService.createDraftShop(value, userId);
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+        message: 'Tạo cửa hàng nháp thành công',
+      };
+      res.json(response);
     }
+  );
 
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new ValidationError('Không tìm thấy user');
+  updateBankAccount = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const { error, value } = updateBankAccountSchema.validate(req.body);
+      if (error) {
+        throw new ValidationError(
+          error.details?.[0]?.message || 'Validation error'
+        );
+      }
+
+      const { shopId } = req.params;
+      if (!shopId) {
+        throw new ValidationError('Không tìm thấy cửa hàng');
+      }
+
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new ValidationError('Không tìm thấy user');
+      }
+
+      const result = await shopService.updateBankAccount(shopId, value, userId);
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+        message: 'Cập nhật thông tin tài khoản ngân hàng thành công',
+      };
+      res.json(response);
     }
+  );
 
-    // const status = req.user?.status;
-    // if (status?.toLowerCase() !== 'active') {
-    //   throw new ValidationError('User không hoạt động');
-    // }
+  submitKyc = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const { error, value } = submitKycSchema.validate(req.body);
+      if (error) {
+        throw new ValidationError(
+          error.details?.[0]?.message || 'Validation error'
+        );
+      }
 
-    const result = await shopService.createDraftShop(value, userId);
+      const { shopId } = req.params;
+      if (!shopId) {
+        throw new ValidationError('Không tìm thấy cửa hàng');
+      }
 
-    const response: ApiResponse = {
-      success: true,
-      data: result,
-      message: 'Tạo cửa hàng nháp thành công',
-    };
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new ValidationError('Không tìm thấy user');
+      }
 
-    res.json(response);
-  };
+      const result = await shopService.submitKyc(shopId, value, userId);
 
-  updateBankAccount = async (req: Request, res: Response): Promise<void> => {
-    const { error, value } = updateBankAccountSchema.validate(req.body);
-
-    if (error) {
-      throw new ValidationError(
-        error.details?.[0]?.message || 'Validation error'
-      );
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+        message: 'Gửi thông tin KYC thành công',
+      };
+      res.json(response);
     }
+  );
 
+  submitForApproval = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const { shopId } = req.params;
+      if (!shopId) {
+        throw new ValidationError('Không tìm thấy cửa hàng');
+      }
+
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new ValidationError('Không tìm thấy user');
+      }
+
+      const result = await shopService.submitForApproval(shopId, userId);
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+        message: 'Gửi yêu cầu phê duyệt thành công',
+      };
+      res.json(response);
+    }
+  );
+
+  approval = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const { shopId } = req.params;
+      if (!shopId) {
+        throw new ValidationError('Không tìm thấy cửa hàng');
+      }
+
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new ValidationError('Không tìm thấy user');
+      }
+
+      const result = await shopService.approveShop(shopId, userId);
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+        message: 'Đã xác nhận yêu cầu tạo shop',
+      };
+      res.json(response);
+    }
+  );
+
+  reject = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { shopId } = req.params;
     if (!shopId) {
       throw new ValidationError('Không tìm thấy cửa hàng');
@@ -58,133 +152,24 @@ export class ShopController {
       throw new ValidationError('Không tìm thấy user');
     }
 
-    // const status = req.user?.status;
-    // if (status?.toLowerCase() !== 'active') {
-    //   throw new ValidationError('User không hoạt động');
-    // }
-
-    const result = await shopService.updateBankAccount(shopId, value, userId);
-
-    const response: ApiResponse = {
-      success: true,
-      data: result,
-      message: 'Cập nhật thông tin tài khoản ngân hàng thành công',
-    };
-
-    res.json(response);
-  };
-
-  submitKyc = async (req: Request, res: Response): Promise<void> => {
-    const { error, value } = submitKycSchema.validate(req.body);
-
-    if (error) {
-      throw new ValidationError(
-        error.details?.[0]?.message || 'Validation error'
-      );
-    }
-    const { shopId } = req.params;
-    if (!shopId) {
-      throw new ValidationError('Không tìm thấy cửa hàng');
-    }
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new ValidationError('Không tìm thấy user');
+    const rejectionReason = req.body?.rejectionReason;
+    if (!rejectionReason) {
+      throw new ValidationError('Vui lòng cung cấp lý do từ chối');
     }
 
-    // const status = req.user?.status;
-    // if (status?.toLowerCase() !== 'active') {
-    //   throw new ValidationError('User không hoạt động');
-    // }
-
-    const result = await shopService.submitKyc(shopId, value, userId);
-
-    const response: ApiResponse = {
-      success: true,
-      data: result,
-      message: 'Gửi thông tin KYC thành công',
-    };
-
-    res.json(response);
-  };
-
-  submitForApproval = async (req: Request, res: Response): Promise<void> => {
-    const { shopId } = req.params;
-    if (!shopId) {
-      throw new ValidationError('Không tìm thấy cửa hàng');
-    }
-
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new ValidationError('Không tìm thấy user');
-    }
-
-    // const status = req.user?.status;
-    // if (status?.toLowerCase() !== 'active') {
-    //   throw new ValidationError('User không hoạt động');
-    // }
-
-    const result = await shopService.submitForApproval(shopId, userId);
-
-    const response: ApiResponse = {
-      success: true,
-      data: result,
-      message: 'Gửi yêu cầu phê duyệt thành công',
-    };
-
-    res.json(response);
-  };
-
-  approval = async (req: Request, res: Response): Promise<void> => {
-    const { shopId } = req.params;
-    if (!shopId) {
-      throw new ValidationError('Không tìm thấy cửa hàng');
-    }
-
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new ValidationError('Không tìm thấy user');
-    }
-
-    // const status = req.user?.status;
-    // if (status?.toLowerCase() !== 'active') {
-    //   throw new ValidationError('User không hoạt động');
-    // }
-
-    const result = shopService.approveShop(shopId, userId);
-
-    const response: ApiResponse = {
-      success: true,
-      data: result,
-      message: 'Đã xác nhận yêu cầu tạo shop',
-    };
-  };
-
-  reject = async (req: Request, res: Response): Promise<void> => {
-    const { shopId } = req.params;
-    if (!shopId) {
-      throw new ValidationError('Không tìm thấy cửa hàng');
-    }
-
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new ValidationError('Không tìm thấy user');
-    }
-
-    // const status = req.user?.status;
-    // if (status?.toLowerCase() !== 'active') {
-    //   throw new ValidationError('User không hoạt động');
-    // }
-
-    const rejectionReason = req.body.rejectionReason;
-
-    const result = shopService.rejectShop(shopId, rejectionReason, userId);
+    const result = await shopService.rejectShop(
+      shopId,
+      rejectionReason,
+      userId
+    );
 
     const response: ApiResponse = {
       success: true,
       data: result,
       message: 'Đã từ chối yêu cầu tạo shop',
     };
-  };
+    res.json(response);
+  });
 }
 
 export const shopController = new ShopController();

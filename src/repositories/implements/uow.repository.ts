@@ -17,6 +17,8 @@ import { IRoleRepository, IUserRoleRepository } from '../interfaces/role.interfa
 import { IPermissionRepository, IRolePermissionRepository, IUserPermissionRepository } from '../interfaces/permission.interface';
 import { RoleRepository, UserRoleRepository } from './role.repository';
 import { PermissionRepository, RolePermissionRepository, UserPermissionRepository } from './permission.repository';
+import { ICartItemRepository, ICartRepository } from '../interfaces/cart.interface';
+import { CartItemRepository, CartRepository } from './cart.repository';
 
 export class UnitOfWork implements IUnitOfWork {
   private isInTransaction = false;
@@ -33,6 +35,8 @@ export class UnitOfWork implements IUnitOfWork {
   private _rolePermissions: IRolePermissionRepository;
   private _userPermissions: IUserPermissionRepository;
   private _permissions: IPermissionRepository;
+  private _cart: ICartRepository;
+  private _cartItem: ICartItemRepository;
 
   constructor(private prisma: PrismaClient) {
     this._users = new UserRepository(this.prisma);
@@ -48,6 +52,8 @@ export class UnitOfWork implements IUnitOfWork {
     this._userRoles = new UserRoleRepository(this.prisma);
     this._rolePermissions = new RolePermissionRepository(this.prisma);
     this._userPermissions = new UserPermissionRepository(this.prisma);
+    this._cart = new CartRepository(this.prisma);
+    this._cartItem = new CartItemRepository(this.prisma);
   }
 
   get users(): IUserRepository {
@@ -100,6 +106,14 @@ export class UnitOfWork implements IUnitOfWork {
 
   get permissions(): IPermissionRepository{
     return this._permissions;
+  }
+
+  get cart(): ICartRepository {
+    return this._cart;
+  }
+
+  get cartItem(): ICartItemRepository {
+    return this._cartItem;
   }
 
   async executeInTransaction<T>(operation: (uow: IUnitOfWork) => Promise<T>): Promise<T> {

@@ -1,4 +1,5 @@
 import { Prisma, Cart, CartItem } from "@prisma/client";
+import { CartIncludes } from "../../types/cart.type";
 
 export interface ICartRepository {
   /**
@@ -13,7 +14,7 @@ export interface ICartRepository {
    * @param id - ID của giỏ hàng
    * @returns Promise<Cart | null>
    */
-  findById(id: string): Promise<Cart | null>;
+  findById(id: string, include?: CartIncludes): Promise<Cart | null>;
   
   /**
    * Tìm giỏ hàng theo ID kèm danh sách items

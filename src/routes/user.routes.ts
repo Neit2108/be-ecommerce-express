@@ -19,5 +19,6 @@ router.get(
   ),
   userController.getUsers
 );
+router.put('/activate', authenticateToken, userController.activate);
 
 export default router;

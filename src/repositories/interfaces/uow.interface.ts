@@ -1,3 +1,4 @@
+import { ICartItemRepository, ICartRepository } from "./cart.interface";
 import { ICategoryRepository, IProductCategoryRepository } from "./category.interface";
 import { IKycDataRepository } from "./kyc.interface";
 import { IKycDocumentRepository } from "./kycDoc.interface";
@@ -20,6 +21,8 @@ export interface IUnitOfWork {
   userRoles: IUserRoleRepository;
   userPermissions: IUserPermissionRepository;
   rolePermissions: IRolePermissionRepository;
+  cart: ICartRepository;
+  cartItem: ICartItemRepository;
 
   executeInTransaction<T>(operation: (uow: IUnitOfWork) => Promise<T>): Promise<T>; // saveChanges
 }

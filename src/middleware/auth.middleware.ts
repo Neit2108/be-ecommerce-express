@@ -379,7 +379,7 @@ export const requireStatus = (allowedStatuses: string[]) => {
       res.status(401).json(response);
       return;
     }
-
+    console.log('User status:', req.user.status, 'Allowed statuses:', allowedStatuses);
     if (!allowedStatuses.includes(req.user.status)) {
       const response: ApiResponse = {
         success: false,

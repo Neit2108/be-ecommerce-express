@@ -52,6 +52,30 @@ export class UserController {
       res.json(response);
     }
   );
+
+  activate = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        throw new ValidationError('Không tìm thấy user');
+      }
+
+      const user = await userService.updateUser(userId, { status: UserStatus.ACTIVE });
+
+      if (!user) {
+        throw new ValidationError(`Không tìm thấy user với id : ${userId}`);
+      }
+
+      const response: ApiResponse = {
+        success: true,
+        data: user,
+        message: "User đã được kích hoạt"
+      };
+
+      res.json(response);
+    }
+  );
 }
 
 export const userController = new UserController();
