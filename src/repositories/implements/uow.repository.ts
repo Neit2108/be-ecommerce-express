@@ -19,6 +19,10 @@ import { RoleRepository, UserRoleRepository } from './role.repository';
 import { PermissionRepository, RolePermissionRepository, UserPermissionRepository } from './permission.repository';
 import { ICartItemRepository, ICartRepository } from '../interfaces/cart.interface';
 import { CartItemRepository, CartRepository } from './cart.repository';
+import { IOrderItemRepository, IOrderRepository, IOrderStatusHistoryRepository } from '../interfaces/order.interface';
+import { OrderRepository } from './order.repository';
+import { OrderItemRepository } from './orderItem.repository';
+import { OrderStatusHistoryRepository } from './orderHistory.repository';
 
 export class UnitOfWork implements IUnitOfWork {
   private isInTransaction = false;
@@ -37,6 +41,9 @@ export class UnitOfWork implements IUnitOfWork {
   private _permissions: IPermissionRepository;
   private _cart: ICartRepository;
   private _cartItem: ICartItemRepository;
+  private _orders: IOrderRepository;
+  private _orderItems: IOrderItemRepository;
+  private _orderStatusHistory: IOrderStatusHistoryRepository;
 
   constructor(private prisma: PrismaClient) {
     this._users = new UserRepository(this.prisma);
@@ -54,6 +61,9 @@ export class UnitOfWork implements IUnitOfWork {
     this._userPermissions = new UserPermissionRepository(this.prisma);
     this._cart = new CartRepository(this.prisma);
     this._cartItem = new CartItemRepository(this.prisma);
+    this._orders = new OrderRepository(this.prisma);
+    this._orderItems = new OrderItemRepository(this.prisma);
+    this._orderStatusHistory = new OrderStatusHistoryRepository(this.prisma);
   }
 
   get users(): IUserRepository {
@@ -114,6 +124,18 @@ export class UnitOfWork implements IUnitOfWork {
 
   get cartItem(): ICartItemRepository {
     return this._cartItem;
+  }
+
+  get orders(): IOrderRepository {
+    return this._orders;
+  }
+
+  get orderItems(): IOrderItemRepository {
+    return this._orderItems;
+  }
+
+  get orderStatusHistory(): IOrderStatusHistoryRepository {
+    return this._orderStatusHistory;
   }
 
   async executeInTransaction<T>(operation: (uow: IUnitOfWork) => Promise<T>): Promise<T> {

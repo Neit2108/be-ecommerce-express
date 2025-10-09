@@ -1,7 +1,6 @@
 import { NotFoundError, ValidationError } from '../errors/AppError';
 import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
 import { CartItemResponse, CartResponse } from '../types/cart.type';
-import { CartItem } from '@prisma/client';
 
 export class CartService {
   constructor(private uow: IUnitOfWork) {}

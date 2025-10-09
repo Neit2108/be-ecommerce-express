@@ -255,6 +255,7 @@ model User {
   roles     UserRole[]
   permissions UserPermission[]
   activities    UserActivity[]
+  orders Order[]
 
   @@map("users")
   @@index([email])
@@ -363,6 +364,7 @@ model Shop {
   owner    User       @relation("ShopOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   products Product[] // 1 shop có nhiều products
   kycData  KycData[]  @relation("ShopKyc")
+  orders   Order[]
   
   @@map("shops")
   @@unique([bankName, bankAccountNumber])
@@ -505,6 +507,7 @@ model Product {
   options  ProductOption[]
   categories ProductCategory[]
   cartItems     CartItem[]
+  orderItems  OrderItem[]
   
   @@map("products")
   @@index([shopId])
@@ -543,6 +546,7 @@ model ProductVariant {
   images       ProductImage[]
   optionValues ProductVariantOptionValue[]
   cartItems     CartItem[]
+  orderItems  OrderItem[]
   
   @@map("product_variants")
   @@index([productId])
@@ -796,4 +800,141 @@ model CartItem {
   @@index([productId])
   @@index([productVariantId])
   @@index([createdAt])
+}
+
+//Order management
+
+enum OrderStatus {
+  PENDING           // Chờ xác nhận
+  CONFIRMED         // Đã xác nhận
+  PROCESSING        // Đang xử lý
+  SHIPPING          // Đang giao
+  DELIVERED         // Đã giao
+  COMPLETED         // Hoàn thành
+  CANCELLED         // Đã hủy
+  REFUNDED          // Đã hoàn tiền
+}
+
+enum PaymentMethod {
+  COD              // Thanh toán khi nhận hàng
+  BANK_TRANSFER    // Chuyển khoản
+  E_WALLET         // Ví điện tử
+  CREDIT_CARD      // Thẻ tín dụng
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum ShippingMethod {
+  STANDARD
+  EXPRESS
+  SAME_DAY
+}
+
+model Order{
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique @map("order_number") // Mã đơn hàng
+  userId          String        @map("user_id")
+  shopId          String        @map("shop_id")
+
+  // Trạng thái
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
+
+  // Giá trị đơn hàng
+  subtotal        Decimal       @db.Decimal(15,2) // Tổng tiền hàng
+  shippingFee     Decimal       @default(0) @map("shipping_fee") @db.Decimal(10,2)
+  discount        Decimal       @default(0) @db.Decimal(10,2)
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(15,2)
+
+  // Thông tin giao hàng
+  shippingMethod  ShippingMethod @map("shipping_method")
+  shippingAddress String        @map("shipping_address")
+  recipientName   String        @map("recipient_name")
+  recipientPhone  String        @map("recipient_phone")
+
+  // Thanh toán
+  paymentMethod   PaymentMethod @map("payment_method")
+  paidAt          DateTime?     @map("paid_at")
+  
+  // Ghi chú
+  customerNote    String?       @map("customer_note")
+  shopNote        String?       @map("shop_note")
+  cancelReason    String?       @map("cancel_reason")
+
+  // Thời gian
+  confirmedAt     DateTime?     @map("confirmed_at")
+  shippedAt       DateTime?     @map("shipped_at")
+  deliveredAt     DateTime?     @map("delivered_at")
+  completedAt     DateTime?     @map("completed_at")
+  cancelledAt     DateTime?     @map("cancelled_at")
+  
+  // Auditable fields
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  createdBy       String?       @map("created_by")
+  updatedBy       String?       @map("updated_by")
+  
+  // Relations
+  user            User          @relation(fields: [userId], references: [id])
+  shop            Shop          @relation(fields: [shopId], references: [id])
+  items           OrderItem[]
+  statusHistory   OrderStatusHistory[]
+
+  @@map("orders")
+  @@index([orderNumber])
+  @@index([userId])
+  @@index([shopId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id               String  @id @default(uuid())
+  orderId          String  @map("order_id")
+  productId        String  @map("product_id")
+  productVariantId String  @map("product_variant_id")
+  
+  quantity         Int
+  unitPrice        Decimal @map("unit_price") @db.Decimal(10,2)
+  totalPrice       Decimal @map("total_price") @db.Decimal(10,2)
+  
+  // Snapshot để lưu thông tin sản phẩm tại thời điểm đặt
+  productName      String  @map("product_name")
+  variantName      String? @map("variant_name")
+  productImageUrl  String? @map("product_image_url")
+  sku              String?
+  
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product        @relation(fields: [productId], references: [id])
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  
+  @@map("order_items")
+  @@index([orderId])
+  @@index([productId])
+  @@index([productVariantId])
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(uuid())
+  orderId     String      @map("order_id")
+  fromStatus  OrderStatus? @map("from_status")
+  toStatus    OrderStatus @map("to_status")
+  note        String?
+  changedBy   String?     @map("changed_by") // User ID
+  changedAt   DateTime    @default(now()) @map("changed_at")
+  
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@map("order_status_history")
+  @@index([orderId])
+  @@index([changedAt])
 }

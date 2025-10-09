@@ -7,6 +7,7 @@ import { KycService } from '../services/kyc.service';
 import { PermissionService } from '../services/permissions.service';
 import { RoleService } from '../services/role.service';
 import { CartService } from '../services/cart.service';
+import { OrderService } from '../services/order.service';
 
 const unitOfWork = new UnitOfWork(prisma);
 export const permissionService = new PermissionService();
@@ -16,3 +17,4 @@ export const shopService = new ShopService(unitOfWork);
 export const kycService = new KycService(unitOfWork);
 export const roleService = new RoleService(unitOfWork);
 export const cartService = new CartService(unitOfWork);
+export const orderService = new OrderService(unitOfWork);

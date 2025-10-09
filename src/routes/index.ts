@@ -6,6 +6,7 @@ import userRoutes from './user.routes';
 import productRoutes from './product.routes';
 import shopRoutes from './shop.routes';
 import cartRoutes from './cart.routes';
+import orderRoutes from './order.routes';
 
 const router = Router();
 
@@ -33,5 +34,6 @@ router.use('/api/products', productRoutes);
 router.use('/api/shops', shopRoutes);
 router.use('/health', healthRoutes);
 router.use('/api/cart', cartRoutes);
+router.use('/api/orders', orderRoutes);
 
 export default router;
