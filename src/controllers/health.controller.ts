@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
 import { redis } from '../config/redis';
 import { DatabaseError, ExternalServiceError } from '../errors/AppError';
+import { cashbackCronService } from '../config/container';
 
 export const healthController = async (_req: Request, res: Response) => {
   try {
@@ -19,12 +20,14 @@ export const healthController = async (_req: Request, res: Response) => {
     throw new ExternalServiceError('Redis', 'Không thể kết nối đến Redis');
   }
 
+  const cashbackCronJobStatus = cashbackCronService.getStatus();
+
   res.json({
     success: true,
     data: {
       status: 'OK',
       timestamp: new Date().toISOString(),
-      services: { database: 'connected', redis: redisStatus },
+      services: { database: 'connected', redis: redisStatus, cashbackCronJob: cashbackCronJobStatus},
     },
   });
 };

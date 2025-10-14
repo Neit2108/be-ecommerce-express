@@ -8,6 +8,10 @@ import { PermissionService } from '../services/permissions.service';
 import { RoleService } from '../services/role.service';
 import { CartService } from '../services/cart.service';
 import { OrderService } from '../services/order.service';
+import { PaymentService } from '../services/payment.service';
+import { CashbackService } from '../services/cashback.service';
+import { CashbackCronService } from '../services/cashback-cron.service';
+import { BlockchainService } from '../services/blockchain.service';
 
 const unitOfWork = new UnitOfWork(prisma);
 export const permissionService = new PermissionService();
@@ -18,3 +22,7 @@ export const kycService = new KycService(unitOfWork);
 export const roleService = new RoleService(unitOfWork);
 export const cartService = new CartService(unitOfWork);
 export const orderService = new OrderService(unitOfWork);
+export const paymentService = new PaymentService(unitOfWork);
+export const blockchainService = new BlockchainService();
+export const cashbackService = new CashbackService(unitOfWork, blockchainService);
+export const cashbackCronService = new CashbackCronService(cashbackService, paymentService);

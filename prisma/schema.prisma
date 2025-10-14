@@ -235,6 +235,10 @@ model User {
   lastLoginAt   DateTime? @map("last_login_at")
   passwordResetToken String? @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
+
+  // Blockchain wallet info
+  walletAddress       String?  @map("wallet_address")
+  preferredNetwork    String?  @default("BSC") @map("preferred_network") // BSC, ETH, POLYGON
   
   // Auditable fields
   createdAt   DateTime   @default(now()) @map("created_at")
@@ -256,6 +260,7 @@ model User {
   permissions UserPermission[]
   activities    UserActivity[]
   orders Order[]
+  cashbacks     Cashback[]
 
   @@map("users")
   @@index([email])
@@ -884,6 +889,8 @@ model Order{
   shop            Shop          @relation(fields: [shopId], references: [id])
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
+  payments        Payment[]   // 👈 Thêm dòng này
+  cashbacks       Cashback[]
 
   @@map("orders")
   @@index([orderNumber])
@@ -937,4 +944,110 @@ model OrderStatusHistory {
   @@map("order_status_history")
   @@index([orderId])
   @@index([changedAt])
+}
+
+// payment
+model Payment {
+  id              String        @id @default(uuid())
+  orderId         String        @map("order_id")
+  
+  // Thông tin thanh toán
+  amount          Decimal       @db.Decimal(15,2)
+  currency        String        @default("VND")
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  
+  // Thông tin giao dịch với payment gateway
+  transactionId   String?       @unique @map("transaction_id") // ID từ payment gateway
+  gatewayResponse Json?         @map("gateway_response") // Response từ gateway
+  
+  // Thời gian
+  paidAt          DateTime?     @map("paid_at")
+  expiredAt       DateTime?     @map("expired_at")
+  failedAt        DateTime?     @map("failed_at")
+  
+  // Ghi chú
+  failureReason   String?       @map("failure_reason")
+  note            String?
+  
+  // Auditable
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  
+  // Relations
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cashback        Cashback?     // 1-1 relation với cashback
+  
+  @@map("payments")
+  @@index([orderId])
+  @@index([transactionId])
+  @@index([status])
+  @@index([method])
+  @@index([createdAt])
+}
+
+//cash back
+enum CashbackStatus {
+  PENDING       // Chờ xử lý
+  PROCESSING    // Đang gửi lên blockchain
+  COMPLETED     // Đã hoàn thành
+  FAILED        // Thất bại
+  CANCELLED     // Đã hủy
+}
+
+model Cashback {
+  id              String         @id @default(uuid())
+  paymentId       String         @unique @map("payment_id")
+  userId          String         @map("user_id")
+  orderId         String         @map("order_id")
+  
+  // Thông tin cashback
+  amount          Decimal        @db.Decimal(15,2)
+  percentage      Decimal        @db.Decimal(5,2) // VD: 5.00 = 5%
+  currency        String         @default("VND")
+  status          CashbackStatus @default(PENDING)
+  
+  // Blockchain info
+  blockchainNetwork   String?    @map("blockchain_network") // ETH, BSC, Polygon, etc.
+  walletAddress       String     @map("wallet_address") // Địa chỉ ví nhận cashback
+  txHash              String?    @unique @map("tx_hash") // Transaction hash
+  blockNumber         Int?       @map("block_number")
+  gasUsed             String?    @map("gas_used")
+  gasFee              Decimal?   @map("gas_fee") @db.Decimal(15,8)
+  
+  // Thời gian
+  eligibleAt      DateTime?      @map("eligible_at") // Thời điểm đủ điều kiện nhận
+  processedAt     DateTime?      @map("processed_at")
+  completedAt     DateTime?      @map("completed_at")
+  failedAt        DateTime?      @map("failed_at")
+  expiresAt       DateTime?      @map("expires_at") // Hết hạn claim
+  
+  // Xử lý lỗi
+  failureReason   String?        @map("failure_reason")
+  retryCount      Int            @default(0) @map("retry_count")
+  lastRetryAt     DateTime?      @map("last_retry_at")
+  
+  // Metadata
+  metadata        Json?          // Thông tin bổ sung
+  note            String?
+  
+  // Auditable
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  
+  // Relations
+  payment         Payment        @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id])
+  order           Order          @relation(fields: [orderId], references: [id])
+  
+  @@map("cashbacks")
+  @@index([paymentId])
+  @@index([userId])
+  @@index([orderId])
+  @@index([status])
+  @@index([walletAddress])
+  @@index([txHash])
+  @@index([blockchainNetwork])
+  @@index([eligibleAt])
+  @@index([createdAt])
 }

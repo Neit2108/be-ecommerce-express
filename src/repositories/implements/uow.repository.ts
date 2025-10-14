@@ -23,6 +23,10 @@ import { IOrderItemRepository, IOrderRepository, IOrderStatusHistoryRepository }
 import { OrderRepository } from './order.repository';
 import { OrderItemRepository } from './orderItem.repository';
 import { OrderStatusHistoryRepository } from './orderHistory.repository';
+import { IPaymentRepository } from '../interfaces/payment.interface';
+import { ICashbackRepository } from '../interfaces/cashback.interface';
+import { CashbackRepository } from './cashback.repository';
+import { PaymentRepository } from './payment.repository';
 
 export class UnitOfWork implements IUnitOfWork {
   private isInTransaction = false;
@@ -44,6 +48,8 @@ export class UnitOfWork implements IUnitOfWork {
   private _orders: IOrderRepository;
   private _orderItems: IOrderItemRepository;
   private _orderStatusHistory: IOrderStatusHistoryRepository;
+  private _payments: IPaymentRepository;
+  private _cashbacks: ICashbackRepository;
 
   constructor(private prisma: PrismaClient) {
     this._users = new UserRepository(this.prisma);
@@ -64,6 +70,8 @@ export class UnitOfWork implements IUnitOfWork {
     this._orders = new OrderRepository(this.prisma);
     this._orderItems = new OrderItemRepository(this.prisma);
     this._orderStatusHistory = new OrderStatusHistoryRepository(this.prisma);
+    this._payments = new PaymentRepository(this.prisma);
+    this._cashbacks = new CashbackRepository(this.prisma);
   }
 
   get users(): IUserRepository {
@@ -136,6 +144,14 @@ export class UnitOfWork implements IUnitOfWork {
 
   get orderStatusHistory(): IOrderStatusHistoryRepository {
     return this._orderStatusHistory;
+  }
+
+  get payments(): IPaymentRepository {
+    return this._payments;
+  }
+
+  get cashbacks(): ICashbackRepository {
+    return this._cashbacks;
   }
 
   async executeInTransaction<T>(operation: (uow: IUnitOfWork) => Promise<T>): Promise<T> {

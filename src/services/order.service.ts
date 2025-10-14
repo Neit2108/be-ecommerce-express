@@ -1,4 +1,4 @@
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { ForbiddenError, NotFoundError, ValidationError } from '../errors/AppError';
 import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
 import { CreateOrderInput, OrderResponse, OrderSearchFilters, UpdateOrderStatusInput } from '../types/order.types';
@@ -125,6 +125,9 @@ export class OrderService {
       }
 
       // history
+
+      // payment
+      await this.createPaymentForOrder(uow, order, input.paymentMethod);
 
       // xóa giỏ hàng
       await uow.cartItem.deleteByCartId(cart.id);
@@ -385,6 +388,116 @@ export class OrderService {
       completedAt: order.completedAt,
       cancelledAt: order.cancelledAt,
     };
+  }
+
+  private async createPaymentForOrder(uow: IUnitOfWork, order: any, paymentMethod: PaymentMethod){
+    let expirationMinutes = 15;
+
+    switch(paymentMethod){
+      case PaymentMethod.COD:
+        expirationMinutes = 0;
+        break;
+      case PaymentMethod.BANK_TRANSFER:
+        expirationMinutes = 60; // 1 giờ
+        break;
+      case PaymentMethod.E_WALLET:
+      case PaymentMethod.CREDIT_CARD:
+        expirationMinutes = 15; // 15 phút
+        break;
+    }
+
+    const expiredAt = expirationMinutes > 0 ? new Date(Date.now() + expirationMinutes * 60000) : null;
+
+    const payment = await uow.payments.create({
+      order: { connect: { id: order.id } },
+      amount: order.totalAmount,
+      method: paymentMethod,
+      status: PaymentStatus.PENDING,
+      expiredAt,
+      note: `Thanh toán đơn hàng ${order.orderNumber} qua ${paymentMethod}`,
+    })
+
+    // xử lý nếu cod
+    if(paymentMethod === PaymentMethod.COD){
+      
+    }
+
+    return payment;
+  }
+
+  private async handlePaymentOnStatusChange(uow: IUnitOfWork, order: any, newStatus: OrderStatus){
+    const payment = await uow.payments.findByOrderId(order.id);
+    if(!payment) return;
+
+    switch(newStatus){
+      case OrderStatus.DELIVERED:
+        if(payment.method === PaymentMethod.COD && payment.status === PaymentStatus.PENDING){
+          await uow.payments.updateStatus(payment.id, PaymentStatus.PAID, {
+            paidAt: new Date(),
+            transactionId: `COD-${Date.now()}`,
+          });
+
+          // cashback
+          await this.createCashbackForPayment(uow, payment, order.userId);
+        }
+        break;
+
+      case OrderStatus.CANCELLED:
+        if(payment.status === PaymentStatus.PENDING){
+          await uow.payments.updateStatus(payment.id, PaymentStatus.FAILED, {
+            failedAt: new Date(),
+            failureReason: 'Đơn hàng bị hủy',
+          });
+        }
+        break;
+
+      case OrderStatus.COMPLETED:
+        if(payment.status !== PaymentStatus.PAID){
+          throw new ValidationError('Không thể hoàn thành đơn hàng khi thanh toán chưa hoàn tất');
+        }
+        break;
+    }
+  }
+
+  private async createCashbackForPayment(uow: IUnitOfWork, payment: any, userId: string){
+    const user = await uow.users.findById(userId);
+    if(!user || !user.walletAddress) {
+      console.log('User không có ví, không tạo cashback');
+      return;
+    }
+
+    const existingCashback = await uow.cashbacks.findByPaymentId(payment.id);
+    if(existingCashback){
+      return; 
+    }
+
+    const cashbackPercentage = 5; // 5%
+    const cashbackAmount = (Number(payment.amount) * cashbackPercentage) / 100;
+
+    // Tạo cashback
+    const eligibleAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 ngày sau
+    const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 ngày sau
+
+    await uow.cashbacks.create({
+      payment: { connect: { id: payment.id } },
+      user: { connect: { id: userId } },
+      order: { connect: { id: payment.orderId } },
+      amount: cashbackAmount,
+      percentage: cashbackPercentage,
+      currency: payment.currency,
+      walletAddress: user.walletAddress,
+      blockchainNetwork: user.preferredNetwork || 'BSC',
+      status: 'PENDING',
+      eligibleAt,
+      expiresAt,
+      updatedAt: new Date(),
+      
+      metadata: {
+        orderNumber: payment.order?.orderNumber,
+        createdBy: 'system',
+      }
+    });
+
   }
 
   //#endregion

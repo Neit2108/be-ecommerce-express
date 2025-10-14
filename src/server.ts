@@ -2,6 +2,7 @@ import http from 'http';
 import { createApp } from './app';
 import { testDatabaseConnection, disconnectDatabase } from './config/prisma';
 import { redis } from './config/redis';
+import { cashbackCronService } from './config/container';
 
 let server: http.Server;
 
@@ -12,8 +13,11 @@ export async function startServer(port: number) {
 
   const app = createApp();
   server = app.listen(port, () => {
-    console.log(`🚀 Server running on :${port}`);
+    console.log(`🚀 Server chạy ở cổng :${port}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+
+    // chạy cronjob
+    cashbackCronService.start();
   });
 
   // Tuỳ chọn: nếu chạy sau proxy/CDN
@@ -23,11 +27,14 @@ export async function startServer(port: number) {
 }
 
 export async function stopServer() {
-  console.log('Shutting down gracefully...');
+  console.log('Dừng...');
+  
+  cashbackCronService.stop();
+
   await new Promise<void>((resolve) =>
     server?.close(() => resolve())
   ).catch(() => { /* swallow */ });
 
   await disconnectDatabase();
-  try { await redis.disconnect(); } catch { /* ignore */ }
+  try { await redis.disconnect(); } catch {  }
 }
