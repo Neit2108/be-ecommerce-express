@@ -14,7 +14,7 @@ router.post('/password-reset/confirm', passwordResetRateLimiter, authController.
 
 // Protected routes
 router.post('/logout', authenticateToken, authController.logout);
-router.get('/profile', authenticateToken, authController.getProfile);
+router.get('/me', authenticateToken, authController.getProfile);
 router.post('/change-password', authenticateToken, authController.changePassword);
 router.post('/verify-email', authenticateToken, authController.verifyEmail);
 

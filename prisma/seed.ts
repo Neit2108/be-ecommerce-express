@@ -215,7 +215,7 @@ async function main() {
 
   // 4. Tạo Users
   console.log('Creating users...')
-  const hashedPassword = await bcrypt.hash('123456789', 12)
+  const hashedPassword = await bcrypt.hash('Ecommerce@123', 12)
 
   const adminUser = await prisma.user.create({
     data: {
@@ -753,11 +753,11 @@ async function main() {
   console.log(`- KYC Data: ${await prisma.kycData.count()}`)
 
   console.log('\n🔐 Default accounts:')
-  console.log('Admin: admin@example.com / 123456789')
-  console.log('KYC Reviewer: kyc.reviewer@example.com / 123456789')
-  console.log('Seller 1: seller1@example.com / 123456789')
-  console.log('Seller 2: seller2@example.com / 123456789')
-  console.log('Customer: customer@example.com / 123456789')
+  console.log('Admin: admin@example.com / Ecommerce@123')
+  console.log('KYC Reviewer: kyc.reviewer@example.com / Ecommerce@123')
+  console.log('Seller 1: seller1@example.com / Ecommerce@123')
+  console.log('Seller 2: seller2@example.com / Ecommerce@123')
+  console.log('Customer: customer@example.com / Ecommerce@123')
 }
 
 main()
