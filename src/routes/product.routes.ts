@@ -23,9 +23,15 @@ router.post(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
     requireRole(RoleType.SYSTEM_ADMIN, RoleType.SELLER),
-    requirePermission(PermissionModule.PRODUCT_MANAGEMENT, PermissionAction.CREATE),
+    requirePermission(
+      PermissionModule.PRODUCT_MANAGEMENT,
+      PermissionAction.CREATE
+    )
   ),
-  ActivityLogger.logMiddleware(PermissionAction.CREATE, PermissionModule.PRODUCT_MANAGEMENT),
+  ActivityLogger.logMiddleware(
+    PermissionAction.CREATE,
+    PermissionModule.PRODUCT_MANAGEMENT
+  ),
   productController.createDraftProduct
 );
 router.put(
@@ -34,9 +40,15 @@ router.put(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
     requireRole(RoleType.SYSTEM_ADMIN, RoleType.SELLER),
-    requirePermission(PermissionModule.PRODUCT_MANAGEMENT, PermissionAction.UPDATE),
+    requirePermission(
+      PermissionModule.PRODUCT_MANAGEMENT,
+      PermissionAction.UPDATE
+    )
   ),
-  ActivityLogger.logMiddleware(PermissionAction.UPDATE, PermissionModule.PRODUCT_MANAGEMENT),
+  ActivityLogger.logMiddleware(
+    PermissionAction.UPDATE,
+    PermissionModule.PRODUCT_MANAGEMENT
+  ),
   productController.addCategoriesToProduct
 );
 router.post(
@@ -45,9 +57,15 @@ router.post(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
     requireRole(RoleType.SYSTEM_ADMIN, RoleType.SELLER),
-    requirePermission(PermissionModule.PRODUCT_MANAGEMENT, PermissionAction.UPDATE),
+    requirePermission(
+      PermissionModule.PRODUCT_MANAGEMENT,
+      PermissionAction.UPDATE
+    )
   ),
-  ActivityLogger.logMiddleware(PermissionAction.UPDATE, PermissionModule.PRODUCT_MANAGEMENT),
+  ActivityLogger.logMiddleware(
+    PermissionAction.UPDATE,
+    PermissionModule.PRODUCT_MANAGEMENT
+  ),
   productController.addOptionsToProduct
 );
 router.post(
@@ -56,9 +74,15 @@ router.post(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
     requireRole(RoleType.SYSTEM_ADMIN, RoleType.SELLER),
-    requirePermission(PermissionModule.PRODUCT_MANAGEMENT, PermissionAction.UPDATE),
+    requirePermission(
+      PermissionModule.PRODUCT_MANAGEMENT,
+      PermissionAction.UPDATE
+    )
   ),
-  ActivityLogger.logMiddleware(PermissionAction.UPDATE, PermissionModule.PRODUCT_MANAGEMENT),
+  ActivityLogger.logMiddleware(
+    PermissionAction.UPDATE,
+    PermissionModule.PRODUCT_MANAGEMENT
+  ),
   productController.addVariantsToProduct
 );
 router.post(
@@ -67,9 +91,15 @@ router.post(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
     requireRole(RoleType.SYSTEM_ADMIN, RoleType.SELLER),
-    requirePermission(PermissionModule.PRODUCT_MANAGEMENT, PermissionAction.UPDATE),
+    requirePermission(
+      PermissionModule.PRODUCT_MANAGEMENT,
+      PermissionAction.UPDATE
+    )
   ),
-  ActivityLogger.logMiddleware(PermissionAction.UPDATE, PermissionModule.PRODUCT_MANAGEMENT),
+  ActivityLogger.logMiddleware(
+    PermissionAction.UPDATE,
+    PermissionModule.PRODUCT_MANAGEMENT
+  ),
   productController.addImagesToProduct
 );
 router.put(
@@ -78,9 +108,15 @@ router.put(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
     requireRole(RoleType.SYSTEM_ADMIN, RoleType.SELLER),
-    requirePermission(PermissionModule.PRODUCT_MANAGEMENT, PermissionAction.UPDATE),
+    requirePermission(
+      PermissionModule.PRODUCT_MANAGEMENT,
+      PermissionAction.UPDATE
+    )
   ),
-  ActivityLogger.logMiddleware(PermissionAction.UPDATE, PermissionModule.PRODUCT_MANAGEMENT),
+  ActivityLogger.logMiddleware(
+    PermissionAction.UPDATE,
+    PermissionModule.PRODUCT_MANAGEMENT
+  ),
   productController.updateProductStatus
 );
 

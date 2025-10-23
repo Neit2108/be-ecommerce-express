@@ -70,7 +70,7 @@ export class ProductRepository implements IProductRepository {
     });
   }
 
-  async findMany(filters: ProductFilters): Promise<PaginatedResponse<Product>> {
+  async findMany(filters: ProductFilters): Promise<PaginatedResponse<ProductWithRelations>> {
   // ===== Pagination & Sort defaults =====
   const page = filters.page && filters.page > 0 ? filters.page : 1;
   const limit = filters.limit && filters.limit > 0 ? filters.limit : 10;
@@ -136,6 +136,20 @@ export class ProductRepository implements IProductRepository {
     orderBy,
     skip,
     take: limit,
+    include: {
+      images: {
+        select: {imageUrl: true},
+        orderBy: {createdAt: 'asc'},
+        take:1  
+      },
+      variants: {
+        select: {
+          price: true
+        },
+        orderBy: {price: 'asc'},
+        take:1 // lấy 1 giá từ variant giá thấp nhất
+      }
+    }
   });
 
   const total = await this.prisma.product.count({ where });

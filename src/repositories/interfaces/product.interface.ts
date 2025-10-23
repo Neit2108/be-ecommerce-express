@@ -71,7 +71,7 @@ export interface IProductRepository {
    * @param {ProductFilters} filters - Bộ lọc và tham số phân trang
    * @returns {Promise<PaginatedResponse<Product>>} - Danh sách sản phẩm với phân trang và filter
    */
-  findMany(filters: ProductFilters): Promise<PaginatedResponse<Product>>;
+  findMany(filters: ProductFilters): Promise<PaginatedResponse<ProductWithRelations>>;
 
   /**
    * Thêm nhiều hình ảnh cho sản phẩm

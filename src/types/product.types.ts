@@ -44,6 +44,8 @@ export interface ProductResponse {
   averageRating: number;
   reviewCount: number;
   createdAt: Date;
+  imageUrl?: string;
+  price: number;
 }
 
 export interface CreateProductOptionData {
@@ -131,9 +133,9 @@ export interface AddProductCategoriesInput {
   categoryIds: string[];
 }
 
-export interface ProductCategoriesResponse{
+export interface ProductCategoriesResponse {
   productId: string;
-  categories:{
+  categories: {
     id: string;
     name: string;
     description?: string;
@@ -141,13 +143,13 @@ export interface ProductCategoriesResponse{
 }
 
 //product
-export interface CreateDraftProductInput{
+export interface CreateDraftProductInput {
   name: string;
   shopId: string;
   description?: string;
 }
 
-export interface DraftProductResponse{
+export interface DraftProductResponse {
   id: string;
   name: string;
   shopId: string;
@@ -157,17 +159,17 @@ export interface DraftProductResponse{
 }
 
 // option
-export interface CreateProductOptionValueInput{
+export interface CreateProductOptionValueInput {
   value: string;
   sortOrder?: number;
 }
 
-export interface CreateProductOptionInput{
+export interface CreateProductOptionInput {
   name: string;
   values: CreateProductOptionValueInput[];
 }
 
-export interface AddProductOptionsInput{
+export interface AddProductOptionsInput {
   // productId: string;
   options: CreateProductOptionInput[];
 }
@@ -186,7 +188,7 @@ export interface ProductOptionsResponse {
 }
 
 // Variant
-export interface CreateProductVariantInput{
+export interface CreateProductVariantInput {
   name: string;
   value: string;
   price: number;
@@ -195,7 +197,7 @@ export interface CreateProductVariantInput{
   optionCombination?: Record<string, string>; // { "color": "red", "size": "M" }
 }
 
-export interface AddProductVariantsInput{
+export interface AddProductVariantsInput {
   variants: CreateProductVariantInput[];
 }
 
@@ -216,14 +218,14 @@ export interface ProductVariantsResponse {
 }
 
 // add image
-export interface AddProductImageInput{
+export interface AddProductImageInput {
   imageUrl: string;
   isPrimary?: boolean;
   sortOrder?: number;
   description?: string;
 }
 
-export interface AddProductImagesInput{
+export interface AddProductImagesInput {
   images: AddProductImageInput[];
 }
 

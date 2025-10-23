@@ -46,6 +46,8 @@ export class ProductService {
       averageRating: product.averageRating,
       reviewCount: product.reviewCount,
       createdAt: product.createdAt,
+      imageUrl: product.images?.[0]?.imageUrl ?? '',
+      price: Number(product.variants?.[0]?.price)
     }));
 
     return {
