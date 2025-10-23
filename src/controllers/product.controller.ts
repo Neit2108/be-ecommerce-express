@@ -17,14 +17,14 @@ import { ProductFilters } from '../types/product.types';
 export class ProductController {
   findById = asyncHandler(
     async (req: Request, res: Response): Promise<void> => {
-      const { productId } = req.params;
-      if (!productId) {
-        throw new ValidationError('Product ID is required');
+      const { id } = req.params;
+      if (!id) {
+        throw new ValidationError('Sản phẩm không tồn tại');
       }
 
-      const product = await productService.findById(productId);
+      const product = await productService.findById(id);
       if (!product) {
-        throw new ValidationError('Product not found');
+        throw new ValidationError('Sản phẩm không tồn tại');
       }
 
       const response: ApiResponse = {

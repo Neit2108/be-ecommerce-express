@@ -1,3 +1,4 @@
+import { ProductDetailResponse } from './../types/product.types';
 import { ProductStatus, ShopStatus } from '@prisma/client';
 import { ForbiddenError, NotFoundError, ValidationError } from '../errors/AppError';
 import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
@@ -21,18 +22,78 @@ import {
 import { generateSKU } from '../utils/sku.util';
 import { ProductWithRelations } from '../repositories/interfaces/product.interface';
 import { PaginatedResponse } from '../types/common';
+import { id } from 'ethers';
 
 export class ProductService {
   constructor(private uow: IUnitOfWork) {}
 
-  async findById(productId: string): Promise<ProductWithRelations | null> {
-    return this.uow.products.findById(productId, {
-      shop: true,
-      images: true,
-      options: true,
-      variants: true,
-      categories: true,
-    });
+  async findById(productId: string): Promise<ProductDetailResponse | null> {
+    const product = await this.uow.products.findById(productId);
+
+    if (!product) {
+      return null;
+    }
+
+    const productDetail: ProductDetailResponse = {
+      id: product.id,
+      name: product.name,
+      shopId: product.shopId,
+      status: product.status,
+      averageRating: product.averageRating,
+      reviewCount: product.reviewCount,
+      createdAt: product.createdAt,
+      imageUrl: product.images?.[0]?.imageUrl ?? '',
+      price: Number(product.variants?.[0]?.price),
+      shop: {
+        id: product.shop?.id ?? '',
+        name: product.shop?.name ?? '',
+      },
+      variants: product.variants?.map((variant) => ({
+        id: variant.id,
+        name: variant.name,
+        value: variant.value,
+        price: Number(variant.price),
+        currency: variant.currency,
+        sku: variant.sku,
+        stock: variant.stock,
+        status: variant.status,
+        optionValues: variant.optionValues?.map((ov) => ({
+          id: ov.id,
+          productOptionId: ov.productOptionId,
+          productOptionValueId: ov.productOptionValueId,
+          productOption: ov.productOption.name,
+          productOptionValue: ov.productOptionValue.value,
+        })),
+        images: variant.images?.map((img) => ({
+          id: img.id,
+          imageUrl: img.imageUrl,
+          isPrimary: img.isPrimary,
+          sortOrder: img.sortOrder,
+        }))
+      })),
+      images: product.images?.map((img) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        isPrimary: img.isPrimary,
+        sortOrder: img.sortOrder,
+      })),
+      options: product.options?.map((opt) => ({
+        id: opt.id,
+        name: opt.name,
+        values: opt.values?.map((val) => ({
+          id: val.id,
+          value: val.value,
+          sortOrder: val.sortOrder,
+        })),
+      })),
+      categories: product.categories?.map((pc) => ({
+        id: pc.category.id,
+        name: pc.category.name,
+        parentCategoryId: pc.category.parentCategoryId ?? '',
+      }))
+    }
+
+    return productDetail;
   }
 
   async findMany(filters: ProductFilters) : Promise<PaginatedResponse<ProductResponse>> {

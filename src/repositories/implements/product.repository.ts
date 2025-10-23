@@ -10,6 +10,7 @@ import {
 import {
   IProductRepository,
   ProductWithRelations,
+  TProductWithRelations,
 } from '../interfaces/product.interface';
 import {
   CreateProductOptionData,
@@ -43,8 +44,44 @@ export class ProductRepository implements IProductRepository {
             },
           },
         },
-        variants: { where: { deletedAt: null } },
-        categories: { where: { deletedAt: null }, include: { category: true } },
+        variants: {
+          where: { deletedAt: null },
+          include: {
+            images: {
+              where: { deletedAt: null },
+              select: {
+                id: true,
+                imageUrl: true,
+                isPrimary: true,
+                sortOrder: true,
+              },
+              orderBy: [{ sortOrder: 'asc' }, { isPrimary: 'desc' }],
+            },
+            optionValues: {
+              where: { deletedAt: null },
+              select: {
+                id: true,
+                productOptionId: true,
+                productOptionValueId: true,
+                productOption: {
+                  select: { name: true },
+                },
+                productOptionValue: {
+                  select: { value: true },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        categories: {
+          where: { deletedAt: null },
+          select: {
+            category: {
+              select: { id: true, name: true, parentCategoryId: true },
+            },
+          },
+        },
       },
     });
   }
@@ -70,104 +107,98 @@ export class ProductRepository implements IProductRepository {
     });
   }
 
-  async findMany(filters: ProductFilters): Promise<PaginatedResponse<ProductWithRelations>> {
-  // ===== Pagination & Sort defaults =====
-  const page = filters.page && filters.page > 0 ? filters.page : 1;
-  const limit = filters.limit && filters.limit > 0 ? filters.limit : 10;
-  const sortBy = filters.sortBy || 'createdAt';
-  const sortOrder: 'asc' | 'desc' = filters.sortOrder === 'asc' ? 'asc' : 'desc';
+  async findMany(
+    filters: ProductFilters
+  ): Promise<
+    PaginatedResponse<TProductWithRelations<{ images: true; variants: true }>>
+  > {
+    // ===== Pagination & Sort defaults =====
+    const page = filters.page && filters.page > 0 ? filters.page : 1;
+    const limit = filters.limit && filters.limit > 0 ? filters.limit : 10;
+    const sortBy = filters.sortBy || 'createdAt';
+    const sortOrder: 'asc' | 'desc' =
+      filters.sortOrder === 'asc' ? 'asc' : 'desc';
 
-  // ===== Build WHERE conditions =====
-  const where: Prisma.ProductWhereInput = {
-    deletedAt: null,
-  };
-
-  // Filter theo trạng thái
-  if (filters.status) {
-    where.status = filters.status;
-  }
-
-  // Filter theo danh mục
-  if (filters.categoryId) {
-    where.categories = {
-      some: {
-        categoryId: filters.categoryId,
-        deletedAt: null,
-      },
+    // ===== Build WHERE conditions =====
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
     };
-  }
 
-  // Filter theo khoảng giá (đã fix lỗi 1=0)
-  if (filters.priceRange) {
-    const orConditions: Prisma.ProductVariantWhereInput[] = [];
-
-    if (filters.priceRange.min !== undefined) {
-      orConditions.push({ price: { gte: filters.priceRange.min } });
-    }
-    if (filters.priceRange.max !== undefined) {
-      orConditions.push({ price: { lte: filters.priceRange.max } });
+    // Filter theo trạng thái
+    if (filters.status) {
+      where.status = filters.status;
     }
 
-    // ✅ Chỉ thêm variants nếu có điều kiện thật
-    if (orConditions.length > 0) {
-      where.variants = { some: { OR: orConditions } };
-    }
-  }
-
-  // Filter theo từ khóa tìm kiếm
-  if (filters.searchTerm) {
-    where.name = {
-      contains: filters.searchTerm,
-      mode: 'insensitive',
-    };
-  }
-
-  // ===== OrderBy (Sort) =====
-  const orderBy: Prisma.ProductOrderByWithRelationInput = {
-    [sortBy]: sortOrder,
-  };
-
-  // ===== Pagination calculation =====
-  const skip = (page - 1) * limit;
-
-  // ===== Query database =====
-  const products = await this.prisma.product.findMany({
-    where,
-    orderBy,
-    skip,
-    take: limit,
-    include: {
-      images: {
-        select: {imageUrl: true},
-        orderBy: {createdAt: 'asc'},
-        take:1  
-      },
-      variants: {
-        select: {
-          price: true
+    // Filter theo danh mục
+    if (filters.categoryId) {
+      where.categories = {
+        some: {
+          categoryId: filters.categoryId,
+          deletedAt: null,
         },
-        orderBy: {price: 'asc'},
-        take:1 // lấy 1 giá từ variant giá thấp nhất
+      };
+    }
+
+    // Filter theo khoảng giá (đã fix lỗi 1=0)
+    if (filters.priceRange) {
+      const orConditions: Prisma.ProductVariantWhereInput[] = [];
+
+      if (filters.priceRange.min !== undefined) {
+        orConditions.push({ price: { gte: filters.priceRange.min } });
+      }
+      if (filters.priceRange.max !== undefined) {
+        orConditions.push({ price: { lte: filters.priceRange.max } });
+      }
+
+      // ✅ Chỉ thêm variants nếu có điều kiện thật
+      if (orConditions.length > 0) {
+        where.variants = { some: { OR: orConditions } };
       }
     }
-  });
 
-  const total = await this.prisma.product.count({ where });
+    // Filter theo từ khóa tìm kiếm
+    if (filters.searchTerm) {
+      where.name = {
+        contains: filters.searchTerm,
+        mode: 'insensitive',
+      };
+    }
 
-  // ===== Return response =====
-  return {
-    data: products,
-    pagination: {
-      total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      limit,
-      hasNext: page * limit < total,
-      hasPrev: page > 1,
-    },
-  };
-}
+    // ===== OrderBy (Sort) =====
+    const orderBy: Prisma.ProductOrderByWithRelationInput = {
+      [sortBy]: sortOrder,
+    };
 
+    // ===== Pagination calculation =====
+    const skip = (page - 1) * limit;
+
+    // ===== Query database =====
+    const products = await this.prisma.product.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+      include: {
+        images: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } },
+        variants: { where: { deletedAt: null } },
+      },
+    });
+
+    const total = await this.prisma.product.count({ where });
+
+    // ===== Return response =====
+    return {
+      data: products,
+      pagination: {
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        limit,
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
+  }
 
   // Product Images Management (Aggregate methods)
   async addImages(
@@ -238,28 +269,28 @@ export class ProductRepository implements IProductRepository {
     createdBy: string
   ): Promise<void> {
     // await this.prisma.$transaction(async (tx) => {
-      for (const option of options) {
-        const createdOption = await this.prisma.productOption.create({
-          data: {
-            productId,
-            name: option.name,
+    for (const option of options) {
+      const createdOption = await this.prisma.productOption.create({
+        data: {
+          productId,
+          name: option.name,
+          createdBy,
+          updatedBy: createdBy,
+        },
+      });
+
+      if (option.values && option.values.length > 0) {
+        await this.prisma.productOptionValue.createMany({
+          data: option.values.map((value, index) => ({
+            productOptionId: createdOption.id,
+            value: value.value,
+            sortOrder: value.sortOrder ?? index,
             createdBy,
             updatedBy: createdBy,
-          },
+          })),
         });
-
-        if (option.values && option.values.length > 0) {
-          await this.prisma.productOptionValue.createMany({
-            data: option.values.map((value, index) => ({
-              productOptionId: createdOption.id,
-              value: value.value,
-              sortOrder: value.sortOrder ?? index,
-              createdBy,
-              updatedBy: createdBy,
-            })),
-          });
-        }
       }
+    }
     // });
   }
 

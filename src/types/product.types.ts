@@ -48,6 +48,56 @@ export interface ProductResponse {
   price: number;
 }
 
+export interface ProductDetailResponse extends ProductResponse {
+  shop?: {
+    id: string;
+    name: string;
+  };
+  variants?: {
+    id: string;
+    name: string;
+    value: string;
+    price: number;
+    currency: string;
+    sku: string;
+    stock: number;
+    status: ProductStatus;
+    optionValues?: {
+      id: string;
+      productOptionId: string;
+      productOptionValueId: string;
+      productOption: string;
+      productOptionValue: string;
+    }[];
+    images?: {
+      id: string;
+      imageUrl: string;
+      isPrimary: boolean;
+      sortOrder: number;
+    }[];
+  }[];
+  images?: {
+    id: string;
+    imageUrl: string;
+    isPrimary: boolean;
+    sortOrder: number;
+  }[];
+  options?: {
+    id: string;
+    name: string;
+    values: {
+      id: string;
+      value: string;
+      sortOrder: number;
+    }[];
+  }[];
+  categories?: {
+    id: string;
+    name: string;
+    parentCategoryId?: string;
+  }[];
+}
+
 export interface CreateProductOptionData {
   name: string;
   values?: CreateProductOptionValueData[];
@@ -67,66 +117,6 @@ export interface BatchUpdateVariantData {
   id: string;
   data: Prisma.ProductVariantUpdateInput;
 }
-
-//   imageUrl: string;
-//   isPrimary?: boolean;
-//   sortOrder?: number;
-//   description?: string;
-// }
-
-// export interface CreateProductOptionValueInput {
-//   value: string;
-//   sortOrder?: number;
-// }
-
-// export interface CreateProductOptionInput {
-//   name: string;
-//   values: CreateProductOptionValueInput[];
-// }
-
-// export interface CreateProductVariantInput {
-//   name: string;
-//   value: string;
-//   price: number;
-//   currency?: string;
-//   description?: string;
-//   images?: CreateProductImageInput[];
-//   optionValues?: { optionName: string; value: string }[];
-// }
-
-// export interface CreateProductInput {
-//   name: string;
-//   shopId: string;
-//   // status?: ProductStatus;
-//   categoryIds?: string[];
-//   images: CreateProductImageInput[];
-//   variants: CreateProductVariantInput[];
-//   option?: CreateProductOptionInput[];
-// }
-
-// export interface CreateProductResponse {
-//   id: string;
-//   name: string;
-//   shopId: string;
-//   status: ProductStatus;
-//   averageRating: number;
-//   reviewCount: number;
-//   createdAt: Date;
-//   variants: {
-//     id: string;
-//     name: string;
-//     value: string;
-//     price: number;
-//     currency: string;
-//     sku: string;
-//   }[];
-//   images: {
-//     id: string;
-//     imageUrl: string;
-//     isPrimary: boolean;
-//     sortOrder: number;
-//   }[];
-// }
 
 //category
 export interface AddProductCategoriesInput {

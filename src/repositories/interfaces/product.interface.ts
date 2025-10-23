@@ -30,10 +30,37 @@ export type ProductWithRelations = Prisma.ProductGetPayload<{
         values: true;
       };
     };
-    variants: true;
-    categories: true;
+    variants: {
+      include: {
+        images: {
+          select: {
+            id: true;
+            imageUrl: true;
+            isPrimary: true;
+            sortOrder: true;
+          };
+        };
+        optionValues: {
+          select: {
+            id: true;
+            productOptionId: true;
+            productOptionValueId: true;
+            productOption: { select: { name: true } };
+            productOptionValue: { select: { value: true } };
+          };
+        };
+      };
+    };
+    categories: {
+      select: { category: { select: { id: true, name: true, parentCategoryId: true } } };
+    };
     shop: true;
   };
+}>;
+
+
+export type TProductWithRelations<T extends ProductIncludes> = Prisma.ProductGetPayload<{
+  include: T;
 }>;
 
 export interface IProductRepository {
@@ -71,7 +98,7 @@ export interface IProductRepository {
    * @param {ProductFilters} filters - Bộ lọc và tham số phân trang
    * @returns {Promise<PaginatedResponse<Product>>} - Danh sách sản phẩm với phân trang và filter
    */
-  findMany(filters: ProductFilters): Promise<PaginatedResponse<ProductWithRelations>>;
+  findMany(filters: ProductFilters): Promise<PaginatedResponse<TProductWithRelations<{images:true; variants:true;}>>>;
 
   /**
    * Thêm nhiều hình ảnh cho sản phẩm

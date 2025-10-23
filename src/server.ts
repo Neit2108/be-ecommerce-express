@@ -16,8 +16,8 @@ export async function startServer(port: number) {
     console.log(`🚀 Server chạy ở cổng :${port}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 
-    // chạy cronjob
-    cashbackCronService.start();
+    // chạy cronjobcashbackCronService.start();
+    
   });
 
   // Tuỳ chọn: nếu chạy sau proxy/CDN
@@ -29,7 +29,7 @@ export async function startServer(port: number) {
 export async function stopServer() {
   console.log('Dừng...');
   
-  cashbackCronService.stop();
+ // cashbackCronService.stop();
 
   await new Promise<void>((resolve) =>
     server?.close(() => resolve())
@@ -38,3 +38,4 @@ export async function stopServer() {
   await disconnectDatabase();
   try { await redis.disconnect(); } catch {  }
 }
+  
