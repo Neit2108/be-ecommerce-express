@@ -16,6 +16,7 @@ import { ActivityLogger } from '../services/logger.service';
 const router = Router();
 
 router.get('/:id', authenticateToken, productController.findById);
+router.get('/', productController.findMany);
 router.post(
   '/',
   combineMiddleware(

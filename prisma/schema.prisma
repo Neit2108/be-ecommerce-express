@@ -530,7 +530,7 @@ model ProductVariant {
   sku         String        @unique
   name        String
   value       String
-  price       Decimal       @db.Decimal(10, 2)
+  price       Decimal       @db.Decimal(15, 2)
   currency    String        @default("VND") // For Money value object
   status      ProductStatus @map("product_status") @default(DRAFT)
   description String?
@@ -783,8 +783,8 @@ model CartItem {
   quantity         Int     @default(1)
   
   // Snapshot
-  unitPrice        Decimal @map("unit_price") @db.Decimal(10,2)
-  totalPrice       Decimal @map("total_price") @db.Decimal(10,2)
+  unitPrice        Decimal @map("unit_price") @db.Decimal(15,2)
+  totalPrice       Decimal @map("total_price") @db.Decimal(15,2)
   
   // snapshot (để hiển thị khi sản phẩm xóa)
   productName      String  @map("product_name")
@@ -908,8 +908,8 @@ model OrderItem {
   productVariantId String  @map("product_variant_id")
   
   quantity         Int
-  unitPrice        Decimal @map("unit_price") @db.Decimal(10,2)
-  totalPrice       Decimal @map("total_price") @db.Decimal(10,2)
+  unitPrice        Decimal @map("unit_price") @db.Decimal(15,2)
+  totalPrice       Decimal @map("total_price") @db.Decimal(15,2)
   
   // Snapshot để lưu thông tin sản phẩm tại thời điểm đặt
   productName      String  @map("product_name")

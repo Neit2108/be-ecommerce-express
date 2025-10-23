@@ -11,6 +11,8 @@ import { productService } from '../config/container';
 import { ApiResponse } from '../types/common';
 import { addProductCategoriesSchema } from '../validators/category.validator';
 import { asyncHandler } from '../middleware/errorHandler';
+import { ProductStatus } from '@prisma/client';
+import { ProductFilters } from '../types/product.types';
 
 export class ProductController {
   findById = asyncHandler(
@@ -30,6 +32,39 @@ export class ProductController {
         data: product,
         message: 'Lấy thành công product',
       };
+      res.json(response);
+    }
+  );
+
+  findMany = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      
+      const priceRange: { min?: number; max?: number } = {};
+      const minPrice = req.query.min ? Number(req.query.min) : undefined;
+      const maxPrice = req.query.max ? Number(req.query.max) : undefined;
+
+      if (minPrice !== undefined) priceRange.min = minPrice;
+      if (maxPrice !== undefined) priceRange.max = maxPrice;
+
+      const filters: ProductFilters = {
+        status: req.query.status as ProductStatus,
+        categoryId: req.query.categoryId as string,
+        searchTerm: req.query.searchTerm as string,
+        priceRange,
+        sortBy: req.query.sortBy as 'createdAt',
+        page: req.query.page ? Number(req.query.page) : 1,
+        limit: req.query.limit ? Number(req.query.limit) : 10,
+        sortOrder: req.query.sortOrder as 'asc' | 'desc',
+      };
+
+      const products = await productService.findMany(filters);
+
+      const response: ApiResponse = {
+        success: true,
+        data: products,
+        message: 'Lấy danh sách sản phẩm thành công',
+      };
+
       res.json(response);
     }
   );

@@ -9,8 +9,10 @@ import {
   CreateDraftProductInput,
   DraftProductResponse,
   ProductCategoriesResponse,
+  ProductFilters,
   ProductImagesResponse,
   ProductOptionsResponse,
+  ProductResponse,
   ProductStatusResponse,
   ProductVariantsResponse,
   UpdateProductStatusInput,
@@ -18,6 +20,7 @@ import {
 } from '../types/product.types';
 import { generateSKU } from '../utils/sku.util';
 import { ProductWithRelations } from '../repositories/interfaces/product.interface';
+import { PaginatedResponse } from '../types/common';
 
 export class ProductService {
   constructor(private uow: IUnitOfWork) {}
@@ -30,6 +33,32 @@ export class ProductService {
       variants: true,
       categories: true,
     });
+  }
+
+  async findMany(filters: ProductFilters) : Promise<PaginatedResponse<ProductResponse>> {
+    const products = await this.uow.products.findMany(filters);
+
+    const productResponses: ProductResponse[] = products.data.map((product) => ({
+      id: product.id,
+      name: product.name,
+      shopId: product.shopId,
+      status: product.status,
+      averageRating: product.averageRating,
+      reviewCount: product.reviewCount,
+      createdAt: product.createdAt,
+    }));
+
+    return {
+      data: productResponses,
+      pagination: {
+        total: products.pagination.total,
+        totalPages: products.pagination.totalPages,
+        currentPage: products.pagination.currentPage,
+        limit: products.pagination.limit,
+        hasNext: products.pagination.hasNext,
+        hasPrev: products.pagination.hasPrev,
+      },
+    };
   }
 
   async createDraftProduct(

@@ -19,6 +19,11 @@ export interface ProductFilters extends PaginationParams {
   status?: ProductStatus;
   categoryId?: string;
   searchTerm?: string;
+  priceRange?: {
+    min?: number;
+    max?: number;
+  };
+  sortBy?: 'createdAt' | 'price' | 'name';
 }
 
 export interface VariantFilters extends PaginationParams {
@@ -29,6 +34,16 @@ export interface VariantFilters extends PaginationParams {
     min?: number;
     max?: number;
   };
+}
+
+export interface ProductResponse {
+  id: string;
+  name: string;
+  shopId: string;
+  status: ProductStatus;
+  averageRating: number;
+  reviewCount: number;
+  createdAt: Date;
 }
 
 export interface CreateProductOptionData {
@@ -51,7 +66,6 @@ export interface BatchUpdateVariantData {
   data: Prisma.ProductVariantUpdateInput;
 }
 
-// export interface CreateProductImageInput {
 //   imageUrl: string;
 //   isPrimary?: boolean;
 //   sortOrder?: number;

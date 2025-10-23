@@ -17,6 +17,7 @@ import {
   ProductFilters,
   ProductIncludes,
 } from '../../types/product.types';
+import { PaginatedResponse } from '../../types/common';
 
 export class ProductRepository implements IProductRepository {
   constructor(private prisma: PrismaClient) {}
@@ -69,50 +70,90 @@ export class ProductRepository implements IProductRepository {
     });
   }
 
-  async findMany(filters: ProductFilters): Promise<Product[]> {
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      ...whereFilters
-    } = filters;
+  async findMany(filters: ProductFilters): Promise<PaginatedResponse<Product>> {
+  // ===== Pagination & Sort defaults =====
+  const page = filters.page && filters.page > 0 ? filters.page : 1;
+  const limit = filters.limit && filters.limit > 0 ? filters.limit : 10;
+  const sortBy = filters.sortBy || 'createdAt';
+  const sortOrder: 'asc' | 'desc' = filters.sortOrder === 'asc' ? 'asc' : 'desc';
 
-    // Build where clause
-    const where: Prisma.ProductWhereInput = {
-      deletedAt: null,
-      ...(whereFilters.status && { status: whereFilters.status }),
-      ...(whereFilters.categoryId && {
-        categories: {
-          some: {
-            categoryId: whereFilters.categoryId,
-            deletedAt: null,
-          },
-        },
-      }),
-      ...(whereFilters.searchTerm && {
-        name: {
-          contains: whereFilters.searchTerm,
-          mode: 'insensitive',
-        },
-      }),
-    };
+  // ===== Build WHERE conditions =====
+  const where: Prisma.ProductWhereInput = {
+    deletedAt: null,
+  };
 
-    // Build orderBy
-    const orderBy: Prisma.ProductOrderByWithRelationInput = {
-      [sortBy]: sortOrder,
-    };
-
-    // Calculate pagination
-    const skip = (page - 1) * limit;
-
-    return this.prisma.product.findMany({
-      where,
-      orderBy,
-      skip,
-      take: limit,
-    });
+  // Filter theo trạng thái
+  if (filters.status) {
+    where.status = filters.status;
   }
+
+  // Filter theo danh mục
+  if (filters.categoryId) {
+    where.categories = {
+      some: {
+        categoryId: filters.categoryId,
+        deletedAt: null,
+      },
+    };
+  }
+
+  // Filter theo khoảng giá (đã fix lỗi 1=0)
+  if (filters.priceRange) {
+    const orConditions: Prisma.ProductVariantWhereInput[] = [];
+
+    if (filters.priceRange.min !== undefined) {
+      orConditions.push({ price: { gte: filters.priceRange.min } });
+    }
+    if (filters.priceRange.max !== undefined) {
+      orConditions.push({ price: { lte: filters.priceRange.max } });
+    }
+
+    // ✅ Chỉ thêm variants nếu có điều kiện thật
+    if (orConditions.length > 0) {
+      where.variants = { some: { OR: orConditions } };
+    }
+  }
+
+  // Filter theo từ khóa tìm kiếm
+  if (filters.searchTerm) {
+    where.name = {
+      contains: filters.searchTerm,
+      mode: 'insensitive',
+    };
+  }
+
+  // ===== OrderBy (Sort) =====
+  const orderBy: Prisma.ProductOrderByWithRelationInput = {
+    [sortBy]: sortOrder,
+  };
+
+  // ===== Pagination calculation =====
+  const skip = (page - 1) * limit;
+
+  // ===== Query database =====
+  const products = await this.prisma.product.findMany({
+    where,
+    orderBy,
+    skip,
+    take: limit,
+  });
+
+  const total = await this.prisma.product.count({ where });
+
+  // ===== Return response =====
+  return {
+    data: products,
+    pagination: {
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      limit,
+      hasNext: page * limit < total,
+      hasPrev: page > 1,
+    },
+  };
+}
+
 
   // Product Images Management (Aggregate methods)
   async addImages(

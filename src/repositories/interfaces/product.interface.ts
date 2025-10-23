@@ -20,6 +20,7 @@ import {
   VariantIncludes,
   VariantOptionValueMapping,
 } from '../../types/product.types';
+import { PaginatedResponse } from '../../types/common';
 
 export type ProductWithRelations = Prisma.ProductGetPayload<{
   include: {
@@ -68,9 +69,9 @@ export interface IProductRepository {
   /**
    * Tìm nhiều sản phẩm với bộ lọc, phân trang và sắp xếp
    * @param {ProductFilters} filters - Bộ lọc và tham số phân trang
-   * @returns {Promise<Product[]>} - Danh sách sản phẩm
+   * @returns {Promise<PaginatedResponse<Product>>} - Danh sách sản phẩm với phân trang và filter
    */
-  findMany(filters: ProductFilters): Promise<Product[]>;
+  findMany(filters: ProductFilters): Promise<PaginatedResponse<Product>>;
 
   /**
    * Thêm nhiều hình ảnh cho sản phẩm

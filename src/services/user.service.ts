@@ -144,7 +144,7 @@ export class UserService {
     createdBy?: string
   ): Promise<UserResponse> {
     return await this.uow.executeInTransaction(async (uow) => {
-      // Business rule: Check email uniqueness
+      // kiem tra email
       const existingEmail = await uow.users.findFirst({
         email: data.email.toLowerCase(),
         deletedAt: null,
@@ -153,7 +153,7 @@ export class UserService {
         throw new EmailExistsError();
       }
 
-      // Business rule: Check phone uniqueness
+      // kiem tra sdt
       if (data.phoneNumber) {
         const existingPhone = await uow.users.findFirst({
           phoneNumber: data.phoneNumber,
@@ -164,10 +164,10 @@ export class UserService {
         }
       }
 
-      // Business logic: Hash password
+      // kiem tra mat khau
       const hashedPassword = await PasswordUtils.hash(data.password);
 
-      // Repository call với dữ liệu thuần
+      // 
       const user = await uow.users.create({
         email: data.email.toLowerCase(),
         identityCard: data.identityCard || null,
