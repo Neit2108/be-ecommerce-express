@@ -18,6 +18,8 @@ export interface CartItemResponse{
     productId: string;
     variantId: string;
     productName?: string;
+    productImage?: string;
+    productCategory?: string;
     quantity: number;
     unitPrice: number;
     totalPrice: number;

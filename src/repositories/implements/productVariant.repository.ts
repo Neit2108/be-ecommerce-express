@@ -26,39 +26,38 @@ export class ProductVariantRepository implements IProductVariantRepository {
     });
   }
 
-async findById(id: string): Promise<ProductVariantWithRelations | null> {
-  return this.prisma.productVariant.findFirst({
-    where: {
-      id,
-      deletedAt: null,
-      // product là quan hệ 1-1 => lọc bằng relation filter ở đây
-      product: { is: { deletedAt: null } }
-    },
-    include: {
-      product: true, // 1-1: không đặt where ở đây
-      images: {
-        // images là 1-n => có thể where/orderBy trong include
-        where: { deletedAt: null },
-        orderBy: { sortOrder: 'asc' }
+  async findById(id: string): Promise<ProductVariantWithRelations | null> {
+    return this.prisma.productVariant.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        // product là quan hệ 1-1 => lọc bằng relation filter ở đây
+        product: { is: { deletedAt: null } },
       },
-      optionValues: {
-        // optionValues là 1-n => có thể where trong include
-        where: {
-          deletedAt: null,
-          // cả hai đều 1-1 => lọc bằng relation filter tại đây
-          productOption: { is: { deletedAt: null } },
-          productOptionValue: { is: { deletedAt: null } }
+      include: {
+        product: true, // 1-1: không đặt where ở đây
+        images: {
+          // images là 1-n => có thể where/orderBy trong include
+          where: { deletedAt: null },
+          orderBy: { sortOrder: 'asc' },
         },
-        include: {
-          // 1-1: chỉ true/ select/include, KHÔNG where
-          productOption: true,
-          productOptionValue: true
-        }
-      }
-    }
-  });
-}
-
+        optionValues: {
+          // optionValues là 1-n => có thể where trong include
+          where: {
+            deletedAt: null,
+            // cả hai đều 1-1 => lọc bằng relation filter tại đây
+            productOption: { is: { deletedAt: null } },
+            productOptionValue: { is: { deletedAt: null } },
+          },
+          include: {
+            // 1-1: chỉ true/ select/include, KHÔNG where
+            productOption: true,
+            productOptionValue: true,
+          },
+        },
+      },
+    });
+  }
 
   async findBySku(sku: string): Promise<ProductVariant | null> {
     return this.prisma.productVariant.findFirst({

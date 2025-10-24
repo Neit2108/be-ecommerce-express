@@ -17,6 +17,8 @@ export class CartService {
             productId: item.productId,
             variantId: item.productVariantId,
             productName: item.productName,
+            productImage: item.productImageUrl ?? '',
+            productCategory: '',
             quantity: item.quantity,
             unitPrice: Number(item.unitPrice),
             totalPrice: Number(item.totalPrice),
@@ -120,8 +122,12 @@ export class CartService {
 
       const variant = await uow.productVariants.findById(variantId, {
         product: true,
+        images: true
       });
       if (!variant) throw new NotFoundError('Product variant');
+      const product = await uow.products.findById(variant.productId, {
+        images: true
+      })
 
       const unitPrice = Number(variant.price ?? 0);
       const createdItem = await uow.cartItem.create({
@@ -132,6 +138,8 @@ export class CartService {
         unitPrice,
         quantity,
         totalPrice: unitPrice * quantity,
+        productImageUrl: product?.images?.[0]?.imageUrl ?? '',
+        variantName: variant.name
       });
 
       return {
@@ -175,6 +183,7 @@ export class CartService {
         productId: updatedItem.productId,
         variantId: updatedItem.productVariantId,
         productName: updatedItem.productName,
+        productImage: updatedItem.productImageUrl,
         quantity,
         unitPrice,
         totalPrice: unitPrice * quantity,
