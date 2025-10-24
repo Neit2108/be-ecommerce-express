@@ -16,6 +16,7 @@ export class CartService {
             id: item.id,
             productId: item.productId,
             variantId: item.productVariantId,
+            variantName: item.variantName ?? '',
             productName: item.productName,
             productImage: item.productImageUrl ?? '',
             productCategory: '',
@@ -61,6 +62,7 @@ export class CartService {
             quantity: item.quantity,
             totalPrice: Number(item.totalPrice),
             unitPrice: Number(item.unitPrice),
+            variantName: item.variantName ?? '',
           };
         }),
         totalAmount: Number(cart.totalAmount),
@@ -113,6 +115,7 @@ export class CartService {
           cartId: updatedItem.cartId,
           productId: updatedItem.productId,
           variantId: updatedItem.productVariantId,
+          variantName: updatedItem.variantName,
           productName: updatedItem.productName,
           quantity: newQuantity,
           unitPrice: unitPrice,
@@ -122,12 +125,12 @@ export class CartService {
 
       const variant = await uow.productVariants.findById(variantId, {
         product: true,
-        images: true
+        images: true,
       });
       if (!variant) throw new NotFoundError('Product variant');
       const product = await uow.products.findById(variant.productId, {
-        images: true
-      })
+        images: true,
+      });
 
       const unitPrice = Number(variant.price ?? 0);
       const createdItem = await uow.cartItem.create({
@@ -139,7 +142,7 @@ export class CartService {
         quantity,
         totalPrice: unitPrice * quantity,
         productImageUrl: product?.images?.[0]?.imageUrl ?? '',
-        variantName: variant.name
+        variantName: variant.name,
       });
 
       return {
@@ -147,6 +150,7 @@ export class CartService {
         cartId: createdItem.cartId,
         productId: createdItem.productId,
         variantId: createdItem.productVariantId,
+        variantName: createdItem.variantName,
         productName: createdItem.productName,
         quantity,
         unitPrice,
@@ -182,6 +186,7 @@ export class CartService {
         cartId: updatedItem.cartId,
         productId: updatedItem.productId,
         variantId: updatedItem.productVariantId,
+        variantName: updatedItem.variantName,
         productName: updatedItem.productName,
         productImage: updatedItem.productImageUrl,
         quantity,
@@ -205,6 +210,7 @@ export class CartService {
         cartId: cartItem.cartId,
         productId: cartItem.productId,
         variantId: cartItem.productVariantId,
+        variantName: cartItem.variantName,
         productName: cartItem.productName,
         quantity: 0,
         unitPrice: 0,
@@ -244,8 +250,9 @@ export class CartService {
         return {
           id: item.id,
           productId: item.productId,
-            variantId: item.productVariantId,
-            productName: item.productName,
+          variantId: item.productVariantId,
+          variantName: item.variantName ?? '',
+          productName: item.productName,
           quantity: item.quantity,
           unitPrice: Number(item.unitPrice),
           totalPrice: Number(item.totalPrice),

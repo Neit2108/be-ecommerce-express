@@ -17,6 +17,7 @@ export interface CartItemResponse{
     cartId?: string;
     productId: string;
     variantId: string;
+    variantName?: string;
     productName?: string;
     productImage?: string;
     productCategory?: string;

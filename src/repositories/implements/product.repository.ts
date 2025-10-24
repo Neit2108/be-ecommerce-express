@@ -29,7 +29,10 @@ export class ProductRepository implements IProductRepository {
     });
   }
 
-  async findById(id: string, include?: ProductIncludes): Promise<ProductWithRelations | null> {
+  async findById(
+    id: string,
+    include?: ProductIncludes
+  ): Promise<ProductWithRelations | null> {
     return this.prisma.product.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -158,10 +161,16 @@ export class ProductRepository implements IProductRepository {
 
     // Filter theo từ khóa tìm kiếm
     if (filters.searchTerm) {
-      where.name = {
-        contains: filters.searchTerm,
-        mode: 'insensitive',
-      };
+      const keywords = filters.searchTerm
+        .split(' ')
+        .filter((k) => k.trim() !== '');
+
+      where.OR = keywords.map((word) => ({
+        name: {
+          contains: word,
+          mode: 'insensitive',
+        },
+      }));
     }
 
     // ===== OrderBy (Sort) =====
