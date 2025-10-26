@@ -25,10 +25,29 @@ export class CartRepository implements ICartRepository{
         return this.prisma.cart.findFirst({ where: { userId } });
     }
 
-    async findByUserIdWithItems(userId: string): Promise<(Cart & { items: CartItem[]; }) | null> {
+    async findByUserIdWithItems(userId: string): Promise<(Cart & { items?: CartItem[]; }) | null> {
         return this.prisma.cart.findFirst({
             where: { userId },
             include: { items: true }
+        });
+    }
+
+    async findByUserIdWithItemsAndVariant(
+        userId: string
+    ): Promise<Prisma.CartGetPayload<{
+        include: { items: { include: { productVariant: { include: { product: true } } } } };
+    }> | null> {
+        return this.prisma.cart.findFirst({
+            where: { userId },
+            include: {
+                items: {
+                    include: {
+                        productVariant: {
+                            include: { product: true }
+                        }
+                    }
+                }
+            }
         });
     }
 
@@ -76,11 +95,15 @@ export class CartRepository implements ICartRepository{
     }
 
     async deleteExpiredCarts(): Promise<Prisma.BatchPayload> {
-        const expiredCarts = await this.findExpiredCarts();
-        const ids = expiredCarts.map(cart => cart.id);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         
         return this.prisma.cart.deleteMany({
-            where: { id: { in: ids } }
+            where: {
+                createdAt: {
+                    lt: thirtyDaysAgo
+                }
+            }
         });
     }
 
@@ -106,6 +129,17 @@ export class CartItemRepository implements ICartItemRepository {
 
     async findById(id: string): Promise<CartItem | null> {
         return this.prisma.cartItem.findUnique({ where: { id } });
+    }
+
+    async findByIdWithVariant(id: string): Promise<
+        Prisma.CartItemGetPayload<{
+            include: { productVariant: { include: { product: true } } };
+        }> | null
+    > {
+        return this.prisma.cartItem.findUnique({
+            where: { id },
+            include: { productVariant: { include: { product: true } } }
+        });
     }
 
     async findByCartId(cartId: string): Promise<CartItem[]> {
@@ -141,12 +175,22 @@ export class CartItemRepository implements ICartItemRepository {
     }
 
     async sumTotalByCartId(cartId: string): Promise<number> {
-        const items = await this.findByCartId(cartId);
-        return items.reduce((total, item) => total + Number(item.totalPrice || 0) * (item.quantity || 1), 0);
+        const result = await this.prisma.cartItem.aggregate({
+            where: { cartId },
+            _sum: {
+                totalPrice: true,
+            },
+        });
+        return result._sum?.totalPrice ? Number(result._sum.totalPrice) : 0;
     }
 
     async sumQuantityByCartId(cartId: string): Promise<number> {
-        const items = await this.findByCartId(cartId);
-        return items.reduce((total, item) => total + (item.quantity || 0), 0);
+        const result = await this.prisma.cartItem.aggregate({
+            where: { cartId },
+            _sum: {
+                quantity: true,
+            },
+        });
+        return result._sum?.quantity ?? 0;
     }
 }

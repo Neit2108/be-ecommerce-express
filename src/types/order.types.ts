@@ -82,17 +82,17 @@ export type OrderResponse = {
   discount: number;
   totalAmount: number;
   currency: string;
-  customerNote?: string;
-  shopNote?: string;
-  cancelReason?: string;
+  customerNote?: string | null;
+  shopNote?: string | null;
+  cancelReason?: string | null;
   items: OrderItemResponse[];
   createdAt: Date;
   updatedAt: Date;
-  confirmedAt?: Date;
-  shippedAt?: Date;
-  deliveredAt?: Date;
-  completedAt?: Date;
-  cancelledAt?: Date;
+  confirmedAt?: Date | null;
+  shippedAt?: Date | null;
+  deliveredAt?: Date | null;
+  completedAt?: Date | null;
+  cancelledAt?: Date | null;
 };
 
 export type OrderListResponse = {

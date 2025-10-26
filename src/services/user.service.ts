@@ -16,6 +16,8 @@ import {
   PhoneExistsError,
   UserNotFoundError,
 } from '../errors/AppError';
+import redis from '../config/redis';
+import { CacheUtil } from '../utils/cache.util';
 
 export class UserService {
   constructor(private uow: IUnitOfWork) {}
@@ -167,7 +169,7 @@ export class UserService {
       // kiem tra mat khau
       const hashedPassword = await PasswordUtils.hash(data.password);
 
-      // 
+      //
       const user = await uow.users.create({
         email: data.email.toLowerCase(),
         identityCard: data.identityCard || null,
@@ -184,13 +186,16 @@ export class UserService {
           create: [
             {
               role: {
-                connect: { type: RoleType.CUSTOMER }
+                connect: { type: RoleType.CUSTOMER },
               },
-              createdBy: "system"
+              createdBy: 'system',
             },
           ],
         },
       });
+
+      // Invalidate cache
+      await this.invalidateUserCache();
 
       return this.excludeSensitiveData(user);
     });
@@ -203,6 +208,13 @@ export class UserService {
     id: string,
     options?: UserQueryOptions
   ): Promise<UserResponse | null> {
+    // Kiểm tra cache trước
+    const cacheKey = CacheUtil.userById(id);
+    const cachedUser = await redis.get(cacheKey);
+    if (cachedUser) {
+      return JSON.parse(cachedUser);
+    }
+
     // Business logic: xử lý options
     const where: Prisma.UserWhereInput = options?.includeDeleted
       ? { id }
@@ -215,7 +227,16 @@ export class UserService {
       user = await this.uow.users.findFirst(where);
     }
 
-    return user ? this.excludeSensitiveData(user) : null;
+    if (!user) {
+      return null;
+    }
+
+    const userResponse = this.excludeSensitiveData(user);
+
+    // Lưu vào cache 1 giờ
+    await redis.set(cacheKey, JSON.stringify(userResponse), 3600);
+
+    return userResponse;
   }
 
   /**
@@ -276,6 +297,10 @@ export class UserService {
       if (data.status) updateData.status = data.status;
 
       const updatedUser = await uow.users.update({ id }, updateData);
+
+      // Invalidate cache
+      await this.invalidateUserCache(id);
+
       return this.excludeSensitiveData(updatedUser);
     });
   }
@@ -286,9 +311,18 @@ export class UserService {
   async getUsers(
     filters?: UserSearchFilters
   ): Promise<PaginatedResponse<UserResponse>> {
-    // Business logic: Default values và validation
+    // Tạo cache key từ filters
     const page = Math.max(1, filters?.page || 1);
     const limit = Math.min(100, Math.max(1, filters?.limit || 10));
+    const cacheKey = CacheUtil.usersByFilters({ ...filters, page, limit });
+
+    // Kiểm tra cache
+    const cachedResult = await redis.get(cacheKey);
+    if (cachedResult) {
+      return JSON.parse(cachedResult);
+    }
+
+    // Business logic: Default values và validation
     const skip = (page - 1) * limit;
     const sortBy = filters?.sortBy || 'createdAt';
     const sortOrder = filters?.sortOrder || 'desc';
@@ -310,7 +344,7 @@ export class UserService {
     // Business logic: Calculate pagination
     const totalPages = Math.ceil(total / limit);
 
-    return {
+    const result = {
       data: users.map((user) => this.excludeSensitiveData(user)),
       pagination: {
         total,
@@ -321,6 +355,11 @@ export class UserService {
         hasPrev: page > 1,
       },
     };
+
+    // Lưu vào cache 10 phút
+    await redis.set(cacheKey, JSON.stringify(result), 600);
+
+    return result;
   }
 
   /**
@@ -340,12 +379,22 @@ export class UserService {
         status: UserStatus.INACTIVE,
       }
     );
+
+    // Invalidate cache
+    await this.invalidateUserCache(id);
   }
 
   /**
    * Get user statistics - COMPLEX BUSINESS LOGIC
    */
   async getUserStatistics(): Promise<UserStatistics> {
+    // Kiểm tra cache trước
+    const cacheKey = CacheUtil.userStatistics();
+    const cachedStats = await redis.get(cacheKey);
+    if (cachedStats) {
+      return JSON.parse(cachedStats);
+    }
+
     const now = DateUtils.now();
     const today = DateUtils.startOfDay(now);
     const thisWeek = DateUtils.startOfWeek(now);
@@ -423,7 +472,7 @@ export class UserService {
       averageAge = Math.round(totalAge / usersWithBirthday.length);
     }
 
-    return {
+    const stats = {
       total,
       byStatus,
       byGender,
@@ -433,6 +482,11 @@ export class UserService {
       createdThisYear,
       averageAge,
     };
+
+    // Lưu vào cache 1 giờ
+    await redis.set(cacheKey, JSON.stringify(stats), 3600);
+
+    return stats;
   }
 
   /**
@@ -450,6 +504,10 @@ export class UserService {
         ...(updatedBy ? { updatedByUser: { connect: { id: updatedBy } } } : {}),
       }
     );
+
+    // Invalidate cache cho tất cả users đó
+    await this.invalidateUserCache();
+
     return result.count;
   }
 
@@ -465,6 +523,37 @@ export class UserService {
         status: UserStatus.INACTIVE,
       }
     );
+
+    // Invalidate cache
+    await this.invalidateUserCache();
+
     return result.count;
+  }
+
+  // ==================== PRIVATE METHODS ====================
+  /**
+   * Invalidate cache liên quan đến user
+   */
+  private async invalidateUserCache(userId?: string): Promise<void> {
+    try {
+      if (userId) {
+        await redis.del(CacheUtil.userById(userId));
+      }
+
+      // Xóa tất cả user list caches
+      for (let page = 1; page <= 100; page++) {
+        await redis.del(CacheUtil.userList(page, 10));
+        await redis.del(CacheUtil.userList(page, 20));
+        await redis.del(CacheUtil.userList(page, 50));
+      }
+
+      // Xóa user statistics
+      await redis.del(CacheUtil.userStatistics());
+
+      // Xóa tất cả cached users filters
+      // Vì không thể lặp qua tất cả filter combinations, chỉ xóa những pattern chính
+    } catch (error) {
+      console.error('Error invalidating user cache:', error);
+    }
   }
 }

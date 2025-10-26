@@ -10,7 +10,7 @@ export interface ProductIncludes {
 }
 
 export interface VariantIncludes {
-  product?: boolean;
+  product?: boolean | { include?: { images?: boolean } };
   images?: boolean;
   optionValues?: boolean;
 }

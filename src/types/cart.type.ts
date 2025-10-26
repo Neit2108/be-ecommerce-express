@@ -7,7 +7,7 @@ export interface CartResponse{
     id: string;
     userId?: string;
     sessionId?: string;
-    items: CartItemResponse[];
+    items?: CartItemResponse[];
     itemsCount: number;
     totalAmount: number;
 }

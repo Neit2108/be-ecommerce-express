@@ -10,7 +10,7 @@ export interface IPaymentRepository {
   create(data: Prisma.PaymentCreateInput): Promise<Payment>;
 
   // Read
-  findById(id: string, include?: PaymentIncludes): Promise<Payment | null>;
+  findById(id: string, include?: Prisma.PaymentInclude): Promise<Prisma.PaymentGetPayload<{include: Prisma.PaymentInclude}> | null>;
   findByOrderId(orderId: string, include?: PaymentIncludes): Promise<Payment | null>;
   findByTransactionId(transactionId: string, include?: PaymentIncludes): Promise<Payment | null>;
   findMany(options?: {

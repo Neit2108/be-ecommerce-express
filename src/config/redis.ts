@@ -13,7 +13,7 @@ interface RedisConfig {
 const redisConfig: RedisConfig = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
-  password: process.env.REDIS_PASSWORD ?? '', 
+  password: process.env.REDIS_PASSWORD ?? '',
   database: parseInt(process.env.REDIS_DB || '0', 10),
 };
 
@@ -27,7 +27,7 @@ class Redis {
         port: redisConfig.port,
       },
       database: redisConfig.database,
-      ...(redisConfig.password ? { password: redisConfig.password } : {}), 
+      ...(redisConfig.password ? { password: redisConfig.password } : {}),
     };
 
     this.client = createClient(options);
@@ -64,7 +64,11 @@ class Redis {
   }
 
   // Set key-value with optional expiration
-  public async set(key: string, value: string, expireInSeconds?: number): Promise<void> {
+  public async set(
+    key: string,
+    value: string,
+    expireInSeconds?: number
+  ): Promise<void> {
     try {
       if (expireInSeconds) {
         // Cách 1: dùng setEx
@@ -122,9 +126,20 @@ class Redis {
     }
   }
 
+  public async flushAll(): Promise<void> {
+  try {
+    await this.client.flushAll();
+    console.log('✅ Redis: Đã xóa toàn bộ dữ liệu');
+  } catch (error) {
+    console.error('❌ Redis lỗi flushAll:', error);
+    throw error;
+  }
+}
+
+
   // Close Redis connection
   public async disconnect(): Promise<void> {
-    await this.client.destroy();
+    await this.client.quit();
     console.log('Đã ngắt kết nối redis');
   }
 }

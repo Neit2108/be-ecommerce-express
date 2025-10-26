@@ -52,16 +52,18 @@ export type ProductWithRelations = Prisma.ProductGetPayload<{
       };
     };
     categories: {
-      select: { category: { select: { id: true, name: true, parentCategoryId: true } } };
+      select: {
+        category: { select: { id: true; name: true; parentCategoryId: true } };
+      };
     };
     shop: true;
   };
 }>;
 
-
-export type TProductWithRelations<T extends ProductIncludes> = Prisma.ProductGetPayload<{
-  include: T;
-}>;
+export type TProductWithRelations<T extends ProductIncludes> =
+  Prisma.ProductGetPayload<{
+    include: T;
+  }>;
 
 export interface IProductRepository {
   /**
@@ -98,7 +100,11 @@ export interface IProductRepository {
    * @param {ProductFilters} filters - Bộ lọc và tham số phân trang
    * @returns {Promise<PaginatedResponse<Product>>} - Danh sách sản phẩm với phân trang và filter
    */
-  findMany(filters: ProductFilters): Promise<PaginatedResponse<TProductWithRelations<{images:true; variants:true;}>>>;
+  findMany(
+    filters: ProductFilters
+  ): Promise<
+    PaginatedResponse<TProductWithRelations<{ images: true; variants: true }>>
+  >;
 
   /**
    * Thêm nhiều hình ảnh cho sản phẩm
@@ -212,13 +218,14 @@ export interface IProductRepository {
 
 export type ProductVariantWithRelations = Prisma.ProductVariantGetPayload<{
   include: {
-    product: true;
+    product: { include?: { images: true } };
     images: true;
     optionValues: true;
   };
 }>;
 
 export interface IProductVariantRepository {
+  batchUpdateStock(stockUpdates: { id: string; quantity: number }[]): any;
   /**
    * Tạo mới một biến thể sản phẩm
    * @param {Prisma.ProductVariantCreateInput} data - Dữ liệu tạo biến thể
@@ -232,6 +239,16 @@ export interface IProductVariantRepository {
    * @returns {Promise<ProductVariantWithRelations | null>} - Biến thể với quan hệ hoặc null
    */
   findById(
+    id: string,
+    include?: VariantIncludes
+  ): Promise<ProductVariantWithRelations | null>;
+  /**
+   * Tìm biến thể sản phẩm theo ID với flexible includes
+   * @param {string} id - ID của biến thể
+   * @param {VariantIncludes} [include] - Tùy chọn include các quan hệ (nếu có product.images)
+   * @returns {Promise<ProductVariantWithRelations | null>} - Biến thể với quan hệ hoặc null
+   */
+  findByIdWithInclude(
     id: string,
     include?: VariantIncludes
   ): Promise<ProductVariantWithRelations | null>;
@@ -251,6 +268,17 @@ export interface IProductVariantRepository {
     id: string,
     data: Prisma.ProductVariantUpdateInput
   ): Promise<ProductVariant>;
+
+  /**
+   * Tìm nhiều biến thể theo danh sách IDs (batch loading)
+   * @param {string[]} ids - Danh sách ID của biến thể
+   * @param {VariantIncludes} [include] - Tùy chọn include các quan hệ
+   * @returns {Promise<ProductVariantWithRelations[]>} - Danh sách biến thể
+   */
+  findByIds(
+    ids: string[],
+    include?: VariantIncludes
+  ): Promise<ProductVariantWithRelations[]>;
   /**
    * Xóa mềm biến thể
    * @param {string} id - ID của biến thể
@@ -295,25 +323,25 @@ export interface IProductVariantRepository {
 
   // Option Values Management
   /**
- * Đặt giá trị tùy chọn cho biến thể (xóa cũ, thêm mới)
- * @param {string} variantId - ID của biến thể
- * @param {VariantOptionValueMapping[]} optionValueMappings - Danh sách ánh xạ giá trị tùy chọn
- * @param {string} updatedBy - ID người cập nhật
- * @returns {Promise<void>}
- */
+   * Đặt giá trị tùy chọn cho biến thể (xóa cũ, thêm mới)
+   * @param {string} variantId - ID của biến thể
+   * @param {VariantOptionValueMapping[]} optionValueMappings - Danh sách ánh xạ giá trị tùy chọn
+   * @param {string} updatedBy - ID người cập nhật
+   * @returns {Promise<void>}
+   */
   setOptionValues(
     variantId: string,
     optionValueMappings: VariantOptionValueMapping[],
     updatedBy: string
   ): Promise<void>;
 
-/**
- * Xóa giá trị tùy chọn của biến thể theo option IDs
- * @param {string} variantId - ID của biến thể
- * @param {string[]} optionIds - Danh sách ID tùy chọn cần xóa
- * @param {string} deletedBy - ID người thực hiện xóa
- * @returns {Promise<void>}
- */
+  /**
+   * Xóa giá trị tùy chọn của biến thể theo option IDs
+   * @param {string} variantId - ID của biến thể
+   * @param {string[]} optionIds - Danh sách ID tùy chọn cần xóa
+   * @param {string} deletedBy - ID người thực hiện xóa
+   * @returns {Promise<void>}
+   */
   removeOptionValues(
     variantId: string,
     optionIds: string[],
@@ -322,25 +350,25 @@ export interface IProductVariantRepository {
 
   // Bulk operations
   /**
- * Tạo nhiều biến thể cùng lúc
- * @param {Prisma.ProductVariantCreateManyInput[]} variants - Danh sách dữ liệu biến thể
- * @returns {Promise<Prisma.BatchPayload>} - Kết quả batch operation
- */
+   * Tạo nhiều biến thể cùng lúc
+   * @param {Prisma.ProductVariantCreateManyInput[]} variants - Danh sách dữ liệu biến thể
+   * @returns {Promise<Prisma.BatchPayload>} - Kết quả batch operation
+   */
   createMany(
     variants: Prisma.ProductVariantCreateManyInput[]
   ): Promise<Prisma.BatchPayload>;
   /**
- * Cập nhật nhiều biến thể theo batch
- * @param {BatchUpdateVariantData[]} updates - Danh sách dữ liệu cập nhật
- * @returns {Promise<void>}
- */
+   * Cập nhật nhiều biến thể theo batch
+   * @param {BatchUpdateVariantData[]} updates - Danh sách dữ liệu cập nhật
+   * @returns {Promise<void>}
+   */
   updateMany(updates: BatchUpdateVariantData[]): Promise<void>;
 
   // Count methods
   /**
- * Đếm tổng số biến thể theo bộ lọc
- * @param {VariantFilters} [filters] - Bộ lọc (tùy chọn)
- * @returns {Promise<number>} - Tổng số biến thể
- */
+   * Đếm tổng số biến thể theo bộ lọc
+   * @param {VariantFilters} [filters] - Bộ lọc (tùy chọn)
+   * @returns {Promise<number>} - Tổng số biến thể
+   */
   count(filters?: VariantFilters): Promise<number>;
 }

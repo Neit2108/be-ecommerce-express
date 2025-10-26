@@ -18,6 +18,16 @@ import {
 export class ProductVariantRepository implements IProductVariantRepository {
   constructor(private prisma: PrismaClient | Prisma.TransactionClient) {}
 
+  async batchUpdateStock(stockUpdates: { id: string; quantity: number; }[]): Promise<void> {
+    const updatePromises = stockUpdates.map(({ id, quantity }) =>
+      this.prisma.productVariant.update({
+        where: { id },
+        data: { stock: quantity, updatedAt: new Date() },
+      })
+    );
+    await Promise.all(updatePromises);
+  }
+
   async create(
     data: Prisma.ProductVariantCreateInput
   ): Promise<ProductVariant> {
@@ -59,6 +69,42 @@ export class ProductVariantRepository implements IProductVariantRepository {
     });
   }
 
+  /**
+   * 🔥 OPTIMIZED: Find with flexible includes parameter
+   */
+  async findByIdWithInclude(
+    id: string,
+    include?: VariantIncludes
+  ): Promise<ProductVariantWithRelations | null> {
+    return this.prisma.productVariant.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        product: { is: { deletedAt: null } },
+      },
+      include: include ?? {
+        product: {
+          include: {images: true},
+        },
+        images: {
+          where: { deletedAt: null },
+          orderBy: { sortOrder: 'asc' },
+        },
+        optionValues: {
+          where: {
+            deletedAt: null,
+            productOption: { is: { deletedAt: null } },
+            productOptionValue: { is: { deletedAt: null } },
+          },
+          include: {
+            productOption: true,
+            productOptionValue: true,
+          },
+        },
+      },
+    });
+  }
+
   async findBySku(sku: string): Promise<ProductVariant | null> {
     return this.prisma.productVariant.findFirst({
       where: {
@@ -77,6 +123,44 @@ export class ProductVariantRepository implements IProductVariantRepository {
       data: {
         ...data,
         updatedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * 🔥 OPTIMIZED: Batch load variants by IDs to prevent N+1 queries
+   */
+  async findByIds(
+    ids: string[],
+    include?: VariantIncludes
+  ): Promise<ProductVariantWithRelations[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    return this.prisma.productVariant.findMany({
+      where: {
+        id: { in: ids },
+        deletedAt: null,
+        product: { is: { deletedAt: null } },
+      },
+      include: include ?? {
+        product: true,
+        images: {
+          where: { deletedAt: null },
+          orderBy: { sortOrder: 'asc' },
+        },
+        optionValues: {
+          where: {
+            deletedAt: null,
+            productOption: { is: { deletedAt: null } },
+            productOptionValue: { is: { deletedAt: null } },
+          },
+          include: {
+            productOption: true,
+            productOptionValue: true,
+          },
+        },
       },
     });
   }

@@ -10,6 +10,8 @@ import {
 } from '../types/cashback.types';
 import { PaginatedResponse } from '../types/common';
 import { BlockchainService } from './blockchain.service';
+import redis from '../config/redis';
+import { CacheUtil } from '../utils/cache.util';
 
 export class CashbackService {
   constructor(
@@ -73,6 +75,9 @@ export class CashbackService {
         metadata: input.metadata || null,
       });
 
+      // Invalidate cache
+      await this.invalidateCashbackCache(undefined, input.userId);
+
       return this.mapToCashbackResponse(cashback);
     });
   }
@@ -87,6 +92,13 @@ export class CashbackService {
     cashbackId: string,
     userId?: string
   ): Promise<CashbackResponse> {
+    // Kiểm tra cache trước
+    const cacheKey = CacheUtil.cashbackById(cashbackId);
+    const cachedCashback = await redis.get(cacheKey);
+    if (cachedCashback) {
+      return JSON.parse(cachedCashback);
+    }
+
     const cashback = await this.uow.cashbacks.findById(cashbackId, {
       payment: true,
       user: true,
@@ -102,7 +114,12 @@ export class CashbackService {
       throw new ForbiddenError('Bạn không có quyền xem cashback này');
     }
 
-    return this.mapToCashbackResponse(cashback);
+    const cashbackResponse = this.mapToCashbackResponse(cashback);
+
+    // Lưu vào cache 1 giờ
+    await redis.set(cacheKey, JSON.stringify(cashbackResponse), 3600);
+
+    return cashbackResponse;
   }
 
   /**
@@ -115,9 +132,21 @@ export class CashbackService {
     userId: string,
     options?: CashbackSearchFilters
   ): Promise<PaginatedResponse<CashbackResponse>> {
+    const page = options?.page || 1;
+    const limit = options?.limit || 10;
+
+    // Tạo cache key
+    const cacheKey = CacheUtil.userCashbacks(userId, page, limit);
+
+    // Kiểm tra cache
+    const cachedResult = await redis.get(cacheKey);
+    if (cachedResult) {
+      return JSON.parse(cachedResult);
+    }
+
     const cashbacks = await this.uow.cashbacks.findByUserId(userId, {
-      skip: options?.page ? options.page * (options?.limit || 10) : 0,
-      take: options?.limit || 10,
+      skip: (page - 1) * limit,
+      take: limit,
       ...(options?.status && { status: options.status }),
     });
 
@@ -126,17 +155,22 @@ export class CashbackService {
       ...(options?.status && { status: options.status }),
     });
 
-    return {
+    const result = {
       data: cashbacks.map(this.mapToCashbackResponse),
       pagination: {
         total,
-        totalPages: Math.ceil(total / (options?.limit || 10)),
-        currentPage: options?.page || 0,
-        limit: options?.limit || 10,
-        hasNext: ((options?.page || 0) + 1) * (options?.limit || 10) < total,
-        hasPrev: (options?.page || 0) > 0,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        limit,
+        hasNext: (page + 1) * limit < total,
+        hasPrev: page > 1,
       },
     };
+
+    // Lưu vào cache 15 phút
+    await redis.set(cacheKey, JSON.stringify(result), 900);
+
+    return result;
   }
 
   /**
@@ -153,7 +187,9 @@ export class CashbackService {
 
       // Kiểm tra điều kiện xử lý
       if (cashback.status !== CashbackStatus.PENDING) {
-        throw new ValidationError(`Cashback ở trạng thái ${cashback.status}, không thể xử lý`);
+        throw new ValidationError(
+          `Cashback ở trạng thái ${cashback.status}, không thể xử lý`
+        );
       }
 
       if (cashback.eligibleAt && cashback.eligibleAt > new Date()) {
@@ -186,6 +222,9 @@ export class CashbackService {
           completedAt: new Date(),
         });
 
+        // Invalidate cache
+        await this.invalidateCashbackCache(cashbackId, cashback.userId);
+
         return {
           success: true,
           cashbackId,
@@ -200,6 +239,9 @@ export class CashbackService {
         });
 
         await uow.cashbacks.incrementRetryCount(cashbackId);
+
+        // Invalidate cache
+        await this.invalidateCashbackCache(cashbackId, cashback.userId);
 
         return {
           success: false,
@@ -216,8 +258,12 @@ export class CashbackService {
    * @param limit 
    * @returns 
    */
-  async processPendingCashbacks(limit: number = 50): Promise<ProcessCashbackResult[]> {
-    const pendingCashbacks = await this.uow.cashbacks.findPendingCashbacks(limit);
+  async processPendingCashbacks(
+    limit: number = 50
+  ): Promise<ProcessCashbackResult[]> {
+    const pendingCashbacks = await this.uow.cashbacks.findPendingCashbacks(
+      limit
+    );
 
     const results: ProcessCashbackResult[] = [];
     for (const cashback of pendingCashbacks) {
@@ -242,8 +288,12 @@ export class CashbackService {
    * @param maxRetries 
    * @returns 
    */
-  async retryFailedCashbacks(maxRetries: number = 3): Promise<ProcessCashbackResult[]> {
-    const failedCashbacks = await this.uow.cashbacks.findFailedCashbacksForRetry(maxRetries);
+  async retryFailedCashbacks(
+    maxRetries: number = 3
+  ): Promise<ProcessCashbackResult[]> {
+    const failedCashbacks = await this.uow.cashbacks.findFailedCashbacksForRetry(
+      maxRetries
+    );
 
     const results: ProcessCashbackResult[] = [];
     for (const cashback of failedCashbacks) {
@@ -283,9 +333,16 @@ export class CashbackService {
             failureReason: 'Cashback đã hết hạn',
           }
         );
+
+        // Invalidate cache
+        await this.invalidateCashbackCache(cashback.id, cashback.userId);
+
         cancelledCount++;
       } catch (error) {
-        console.error(`Failed to cancel expired cashback ${cashback.id}:`, error);
+        console.error(
+          `Failed to cancel expired cashback ${cashback.id}:`,
+          error
+        );
       }
     }
 
@@ -310,7 +367,7 @@ export class CashbackService {
     // Verify trên blockchain
     const isValid = await this.blockchainService.verifyTransaction(
       cashback.txHash,
-      cashback.blockchainNetwork || 'ethereum',
+      cashback.blockchainNetwork || 'ethereum'
     );
 
     return isValid;
@@ -327,6 +384,13 @@ export class CashbackService {
     endDate?: Date;
     status?: CashbackStatus;
   }) {
+    // Tạo cache key từ filters
+    const cacheKey = CacheUtil.cashbackStatistics();
+    const cachedStats = await redis.get(cacheKey);
+    if (cachedStats) {
+      return JSON.parse(cachedStats);
+    }
+
     const where: any = {
       ...(filters?.userId && { userId: filters.userId }),
       ...(filters?.status && { status: filters.status }),
@@ -348,17 +412,25 @@ export class CashbackService {
       status: CashbackStatus.COMPLETED,
     });
 
-    return {
+    const stats = {
       totalAmount,
       totalCount,
       completedAmount,
       averageAmount: totalCount > 0 ? totalAmount / totalCount : 0,
     };
+
+    // Lưu vào cache 1 giờ
+    await redis.set(cacheKey, JSON.stringify(stats), 3600);
+
+    return stats;
   }
 
   //#region Private methods
 
-  private calculateCashbackAmount(paymentAmount: number, percentage: number): number {
+  private calculateCashbackAmount(
+    paymentAmount: number,
+    percentage: number
+  ): number {
     return (paymentAmount * percentage) / 100;
   }
 
@@ -393,4 +465,33 @@ export class CashbackService {
   }
 
   //#endregion
+
+  // ==================== PRIVATE CACHE METHODS ====================
+  /**
+   * Invalidate cache liên quan đến cashback
+   */
+  private async invalidateCashbackCache(
+    cashbackId?: string,
+    userId?: string
+  ): Promise<void> {
+    try {
+      if (cashbackId) {
+        await redis.del(CacheUtil.cashbackById(cashbackId));
+      }
+
+      // Xóa user cashbacks cache
+      if (userId) {
+        for (let page = 1; page <= 50; page++) {
+          await redis.del(CacheUtil.userCashbacks(userId, page, 10));
+          await redis.del(CacheUtil.userCashbacks(userId, page, 20));
+          await redis.del(CacheUtil.userCashbacks(userId, page, 50));
+        }
+      }
+
+      // Xóa cashback statistics
+      await redis.del(CacheUtil.cashbackStatistics());
+    } catch (error) {
+      console.error('Error invalidating cashback cache:', error);
+    }
+  }
 }

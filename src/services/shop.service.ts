@@ -11,24 +11,38 @@ import {
 
 import { DateUtils } from '../utils/date.util';
 import { PaginationParams } from '../types/common';
+import redis from '../config/redis';
+import { CacheUtil } from '../utils/cache.util';
 
 export class ShopService {
   constructor(private uow: IUnitOfWork) {}
 
   async findByOwnerId(ownerId: string): Promise<ShopResponse | null> {
-    const shop = await this.uow.shops.findByOwnerId(ownerId, {owner : true});
+    // Kiểm tra cache trước
+    const cacheKey = CacheUtil.shopByOwnerId(ownerId);
+    const cachedShop = await redis.get(cacheKey);
+    if (cachedShop) {
+      return JSON.parse(cachedShop);
+    }
+
+    const shop = await this.uow.shops.findByOwnerId(ownerId, { owner: true });
     if (!shop) {
       return null;
     }
 
-    return {
+    const shopResponse = {
       id: shop.id,
       name: shop.name,
       owner: {
         id: shop.owner.id,
-        name: shop.owner.firstName + " " + shop.owner.lastName,
-      }
+        name: shop.owner.firstName + ' ' + shop.owner.lastName,
+      },
     } as ShopResponse;
+
+    // Lưu vào cache 1 giờ
+    await redis.set(cacheKey, JSON.stringify(shopResponse), 3600);
+
+    return shopResponse;
   }
 
   async createDraftShop(
@@ -98,6 +112,9 @@ export class ShopService {
         updatedAt: DateUtils.now(),
       });
 
+      // Invalidate cache
+      await this.invalidateShopCache(shopId, updatedBy);
+
       return {
         id: updatedShop.id,
         name: updatedShop.name,
@@ -165,6 +182,9 @@ export class ShopService {
         documentsCount: data.documents.length,
       });
 
+      // Invalidate cache
+      await this.invalidateShopCache(shopId, updatedBy);
+
       return {} as KycResponse;
     });
   }
@@ -190,6 +210,9 @@ export class ShopService {
         shopId,
         ApprovalStatus.REVIEWING
       );
+
+      // Invalidate cache
+      await this.invalidateShopCache(shopId, userId);
 
       return {
         id: shop.id,
@@ -223,6 +246,9 @@ export class ShopService {
         await uow.shops.activate(shopId);
       }
 
+      // Invalidate cache
+      await this.invalidateShopCache(shopId, shop.ownerId);
+
       return {} as ShopResponse;
     });
   }
@@ -233,6 +259,11 @@ export class ShopService {
     rejectedBy: string
   ): Promise<ShopResponse> {
     return this.uow.executeInTransaction(async (uow) => {
+      const shop = await uow.shops.findById(shopId);
+      if (!shop) {
+        throw new NotFoundError('Shop với id : ' + shopId);
+      }
+
       const updatedShop = await uow.shops.updateApprovalStatus(
         shopId,
         ApprovalStatus.REJECTED,
@@ -240,7 +271,31 @@ export class ShopService {
         rejectionReason
       );
 
+      // Invalidate cache
+      await this.invalidateShopCache(shopId, shop.ownerId);
+
       return {} as ShopResponse;
     });
+  }
+
+  // ==================== PRIVATE METHODS ====================
+  /**
+   * Invalidate cache liên quan đến shop
+   */
+  private async invalidateShopCache(
+    shopId: string,
+    ownerId?: string
+  ): Promise<void> {
+    try {
+      await redis.del(CacheUtil.shopById(shopId));
+      if (ownerId) {
+        await redis.del(CacheUtil.shopByOwnerId(ownerId));
+      }
+      await redis.del(CacheUtil.shopList());
+      // Xóa product cache của shop này
+      await redis.del(CacheUtil.productsByShop(shopId));
+    } catch (error) {
+      console.error('Error invalidating shop cache:', error);
+    }
   }
 }

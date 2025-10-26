@@ -1,56 +1,59 @@
 import { NotFoundError, ValidationError } from '../errors/AppError';
 import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
 import { CartItemResponse, CartResponse } from '../types/cart.type';
+import redis from '../config/redis';
+import { CacheUtil } from '../utils/cache.util';
 
 export class CartService {
   constructor(private uow: IUnitOfWork) {}
 
   async getOrCreateByUser(userId: string): Promise<CartResponse> {
-    const cart = await this.uow.cart.findByUserIdWithItems(userId);
-    if (cart) {
-      return {
-        id: cart.id,
-        userId: cart.userId ?? userId,
-        items: cart.items.map((item) => {
-          return {
-            id: item.id,
-            productId: item.productId,
-            variantId: item.productVariantId,
-            variantName: item.variantName ?? '',
-            productName: item.productName,
-            productImage: item.productImageUrl ?? '',
-            productCategory: '',
-            quantity: item.quantity,
-            unitPrice: Number(item.unitPrice),
-            totalPrice: Number(item.totalPrice),
-          };
-        }),
-        totalAmount: Number(cart.totalAmount),
-        itemsCount: cart.totalItems,
-      };
+    // Kiểm tra cache trước
+    const cacheKey = CacheUtil.cartByUserId(userId);
+    try {
+      const cachedCart = await redis.get(cacheKey);
+      if (cachedCart) {
+        return JSON.parse(cachedCart);
+      }
+    } catch (error) {
+      console.error('Redis get error:', error);
     }
 
-    // Nếu không tìm thấy giỏ hàng, tạo mới
-    const newCart = await this.uow.cart.create({
-      user: { connect: { id: userId } },
-      items: {
-        create: [],
-      },
-    });
+    return this.uow.executeInTransaction(async (uow) => {
+      let cart = await uow.cart.findByUserIdWithItems(userId);
 
-    return {
-      id: newCart.id,
-      userId: newCart.userId ?? '',
-      items: [],
-      totalAmount: 0,
-      itemsCount: 0,
-    };
+      if (!cart) {
+        cart = await uow.cart.create({
+          user: { connect: { id: userId } },
+          totalAmount: 0,
+          totalItems: 0,
+        });
+
+        cart.items = [];
+      }
+
+      const cartResponse = this.mapToCartResponse(cart, userId);
+
+      // Lưu vào cache
+      await redis
+        .set(cacheKey, JSON.stringify(cartResponse), 600)
+        .catch((err) => console.error('Redis set error:', err));
+
+      return cartResponse;
+    });
   }
 
   async getOrCreateBySession(sessionId: string): Promise<CartResponse> {
+    // Kiểm tra cache trước
+    const cacheKey = CacheUtil.cartBySessionId(sessionId);
+    const cachedCart = await redis.get(cacheKey);
+    if (cachedCart) {
+      return JSON.parse(cachedCart);
+    }
+
     const cart = await this.uow.cart.findBySessionIdWithItems(sessionId);
     if (cart) {
-      return {
+      const cartResponse = {
         id: cart.id,
         sessionId: cart.sessionId ?? sessionId,
         items: cart.items.map((item) => {
@@ -68,6 +71,11 @@ export class CartService {
         totalAmount: Number(cart.totalAmount),
         itemsCount: Number(cart.totalItems),
       };
+
+      // Lưu vào cache 10 phút
+      await redis.set(cacheKey, JSON.stringify(cartResponse), 600);
+
+      return cartResponse;
     }
 
     // Nếu không tìm thấy giỏ hàng, tạo mới
@@ -78,13 +86,18 @@ export class CartService {
       },
     });
 
-    return {
+    const newCartResponse = {
       id: newCart.id,
       userId: newCart.userId ?? '',
       items: [],
       totalAmount: 0,
       itemsCount: 0,
     };
+
+    // Lưu vào cache
+    await redis.set(cacheKey, JSON.stringify(newCartResponse), 600);
+
+    return newCartResponse;
   }
 
   async addItem(
@@ -97,65 +110,62 @@ export class CartService {
     }
 
     return this.uow.executeInTransaction(async (uow) => {
-      const existingItem = await uow.cartItem.findByCartAndVariant(
-        cartId,
-        variantId
-      );
+      const [existingItem, variant] = await Promise.all([
+        uow.cartItem.findByCartAndVariant(cartId, variantId),
+        uow.productVariants.findByIdWithInclude(variantId, {
+          images: true,
+          product: true
+        })
+      ]);
 
-      if (existingItem) {
-        const unitPrice = Number(existingItem.unitPrice ?? 0);
-        const newQuantity = existingItem.quantity + quantity;
-        const updatedItem = await uow.cartItem.update(existingItem.id, {
-          quantity: newQuantity,
-          totalPrice: unitPrice * newQuantity,
-        });
-
-        return {
-          id: updatedItem.id,
-          cartId: updatedItem.cartId,
-          productId: updatedItem.productId,
-          variantId: updatedItem.productVariantId,
-          variantName: updatedItem.variantName,
-          productName: updatedItem.productName,
-          quantity: newQuantity,
-          unitPrice: unitPrice,
-          totalPrice: unitPrice * newQuantity,
-        } as CartItemResponse;
+      if(!variant){
+        throw new NotFoundError('Sản phẩm không tồn tại');
       }
 
-      const variant = await uow.productVariants.findById(variantId, {
-        product: true,
-        images: true,
-      });
-      if (!variant) throw new NotFoundError('Product variant');
-      const product = await uow.products.findById(variant.productId, {
-        images: true,
-      });
+      const finalQuantity = existingItem
+      ? existingItem.quantity + quantity
+      : quantity;
+
+      if(variant.stock < finalQuantity){
+        throw new ValidationError('Số lượng trong kho không đủ');
+      }
 
       const unitPrice = Number(variant.price ?? 0);
-      const createdItem = await uow.cartItem.create({
-        cart: { connect: { id: cartId } },
-        productVariant: { connect: { id: variantId } },
-        product: { connect: { id: variant.productId } },
-        productName: variant.product?.name,
-        unitPrice,
-        quantity,
-        totalPrice: unitPrice * quantity,
-        productImageUrl: product?.images?.[0]?.imageUrl ?? '',
-        variantName: variant.name,
-      });
+      const totalPrice = unitPrice * finalQuantity;
 
-      return {
-        id: createdItem.id,
-        cartId: createdItem.cartId,
-        productId: createdItem.productId,
-        variantId: createdItem.productVariantId,
-        variantName: createdItem.variantName,
-        productName: createdItem.productName,
-        quantity,
-        unitPrice,
-        totalPrice: unitPrice * quantity,
-      } as CartItemResponse;
+      let cartItem;
+      if(existingItem){
+        cartItem = await uow.cartItem.update(existingItem.id, {
+          quantity: finalQuantity,
+          totalPrice,
+        });
+      }
+      else{
+        const productImages = variant.images ?? [];
+
+        cartItem = await uow.cartItem.create({
+          cart: { connect: { id: cartId } },
+          productVariant: { connect: { id: variantId } },
+          product: { connect: { id: variant.productId } },
+          productName: variant.product?.name || '',
+          variantName: variant.name,
+          unitPrice,
+          quantity: finalQuantity,
+          totalPrice,
+          productImageUrl: productImages?.[0]?.imageUrl ?? '',
+        });
+      }
+
+      await this.updateCartTotals(uow, cartId);
+      
+      const cart = await uow.cart.findById(cartId);
+
+      if(cart?.userId){
+        await this.invalidateCartCache(cartId, undefined, cart.userId)
+        .catch((err) => console.error('Invalidate cart cache error:', err));
+      }
+
+      return this.mapToCartItemResponse(cartItem);
     });
   }
 
@@ -163,36 +173,59 @@ export class CartService {
     cartId: string,
     itemId: string,
     quantity: number
-  ): Promise<CartItemResponse> {
+  ): Promise<CartItemResponse | null> {
+    if (quantity <= 0) {
+      throw new ValidationError('Số lượng phải lớn hơn 0');
+    }
+
     return this.uow.executeInTransaction(async (uow) => {
-      const cartItem = await uow.cartItem.findById(itemId);
-      if (!cartItem || cartItem.cartId !== cartId) {
-        throw new NotFoundError('Cart item');
+      const cartItem = await uow.cartItem.findByIdWithVariant(itemId);
+
+      if(!cartItem || cartItem.cartId !== cartId){
+        throw new NotFoundError('Sản phẩm trong giỏ hàng không tồn tại');
       }
 
-      if (quantity <= 0) {
+      if(quantity === 0){
         await uow.cartItem.delete(itemId);
+
+        await this.updateCartTotals(uow, cartId);
+
+        const cart = await uow.cart.findById(cartId);
+        if(cart?.userId){
+          await this.invalidateCartCache(cartId, undefined, cart.userId)
+          .catch((err) => console.error('Invalidate cart cache error:', err));
+        }
+
+        return null;
       }
 
-      const unitPrice = Number(cartItem.unitPrice ?? 0);
+      const variant = cartItem.productVariant;
+      if(!variant){
+        throw new NotFoundError('Sản phẩm không tồn tại');
+      }
+
+      if(variant.stock < quantity){
+        throw new ValidationError('Số lượng trong kho không đủ');
+      }
+
+      const unitPrice = Number(variant.price ?? 0);
+      const totalPrice = unitPrice * quantity;
 
       const updatedItem = await uow.cartItem.update(itemId, {
         quantity,
-        totalPrice: unitPrice * quantity,
+        totalPrice,
       });
 
-      return {
-        id: updatedItem.id,
-        cartId: updatedItem.cartId,
-        productId: updatedItem.productId,
-        variantId: updatedItem.productVariantId,
-        variantName: updatedItem.variantName,
-        productName: updatedItem.productName,
-        productImage: updatedItem.productImageUrl,
-        quantity,
-        unitPrice,
-        totalPrice: unitPrice * quantity,
-      } as CartItemResponse;
+      await this.updateCartTotals(uow, cartId);
+
+      const cart = await uow.cart.findById(cartId);
+
+      if(cart?.userId){
+        await this.invalidateCartCache(cartId, undefined, cart.userId)
+        .catch((err) => console.error('Invalidate cart cache error:', err));
+      }
+
+      return this.mapToCartItemResponse(updatedItem);
     });
   }
 
@@ -204,6 +237,14 @@ export class CartService {
       }
 
       await uow.cartItem.delete(itemId);
+
+      // Invalidate cache
+      const cart = await uow.cart.findById(cartId);
+      await this.invalidateCartCache(
+        cartId,
+        undefined,
+        cart?.userId ?? undefined
+      );
 
       return {
         id: cartItem.id,
@@ -220,10 +261,19 @@ export class CartService {
   }
 
   async clearCart(cartId: string): Promise<CartResponse> {
+    const cart = await this.uow.cart.findById(cartId);
+    if (!cart) {
+      throw new NotFoundError('Cart not found');
+    }
+
     await this.uow.cartItem.deleteByCartId(cartId);
+
+    // Invalidate cache
+    await this.invalidateCartCache(cartId, undefined, cart.userId ?? undefined);
+
     return {
       id: cartId,
-      userId: '',
+      userId: cart.userId ?? '',
       items: [],
       totalAmount: 0,
       itemsCount: 0,
@@ -243,7 +293,7 @@ export class CartService {
     cart.userId = userId;
     await this.uow.cart.update(cart.id, { user: { connect: { id: userId } } });
 
-    return {
+    const cartResponse = {
       id: cart.id,
       userId: cart.userId ?? '',
       items: cart.items.map((item) => {
@@ -261,5 +311,86 @@ export class CartService {
       totalAmount: Number(cart.totalAmount),
       itemsCount: cart.totalItems,
     };
+
+    // Invalidate cache
+    await this.invalidateCartCache(cart.id, sessionId, userId);
+
+    return cartResponse;
+  }
+
+  // ==================== PRIVATE CACHE METHODS ====================
+  /**
+   * Invalidate cache liên quan đến cart
+   */
+  private async invalidateCartCache(
+    cartId?: string,
+    sessionId?: string,
+    userId?: string
+  ): Promise<void> {
+    try {
+      if (cartId) {
+        console.log('Xóa cache của cartId', cartId);
+        await redis.del(CacheUtil.cartItemsByCartId(cartId));
+      }
+
+      // Xóa cache session cart
+      if (sessionId) {
+        await redis.del(CacheUtil.cartBySessionId(sessionId));
+      }
+
+      // Xóa cache user cart (điều quan trọng vì frontend luôn lấy cart bằng userId)
+      if (userId) {
+        console.log('Xóa cache của userId', userId);
+        await redis.del(CacheUtil.cartByUserId(userId));
+      }
+    } catch (error) {
+      console.error('Error invalidating cart cache:', error);
+    }
+  }
+
+  private mapToCartResponse(cart: any, userId: string): CartResponse {
+    return {
+      id: cart.id,
+      userId: cart.userId ?? userId,
+      items:
+        cart.items?.map((item: any) => ({
+          id: item.id,
+          productId: item.productId,
+          variantId: item.productVariantId,
+          variantName: item.variantName ?? '',
+          productName: item.productName,
+          productImage: item.productImageUrl ?? '',
+          productCategory: '', // Consider removing if always empty
+          quantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+          totalPrice: Number(item.totalPrice),
+        })) ?? [],
+      totalAmount: Number(cart.totalAmount ?? 0),
+      itemsCount: cart.totalItems ?? 0,
+    };
+  }
+
+  private mapToCartItemResponse(item: any): CartItemResponse {
+  return {
+    id: item.id,
+    cartId: item.cartId,
+    productId: item.productId,
+    variantId: item.productVariantId,
+    variantName: item.variantName ?? '',
+    productName: item.productName ?? '',
+    quantity: item.quantity,
+    unitPrice: Number(item.unitPrice ?? 0),
+    totalPrice: Number(item.totalPrice ?? 0),
+  };
+}
+
+  private async updateCartTotals(uow: IUnitOfWork, cartId: string): Promise<void>{
+    const items = await uow.cartItem.findByCartId(cartId);
+    const totalAmount = items.reduce((sum, item) => sum + Number(item.totalPrice), 0);
+    const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+    await uow.cart.update(cartId, {
+      totalAmount,
+      totalItems
+    });
   }
 }

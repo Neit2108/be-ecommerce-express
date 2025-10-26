@@ -8,7 +8,7 @@ export class PaymentRepository implements IPaymentRepository {
     return this.prisma.payment.create({ data });
   }
 
-  async findById(id: string, include?: PaymentIncludes): Promise<Payment | null> {
+  async findById(id: string, include?: Prisma.PaymentInclude): Promise<Prisma.PaymentGetPayload<{include: Prisma.PaymentInclude}> | null> {
     return this.prisma.payment.findUnique({
       where: { id },
       include: { ...include },

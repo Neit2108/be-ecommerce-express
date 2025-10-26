@@ -277,30 +277,31 @@ export class ProductRepository implements IProductRepository {
     options: CreateProductOptionData[],
     createdBy: string
   ): Promise<void> {
-    // await this.prisma.$transaction(async (tx) => {
-    for (const option of options) {
-      const createdOption = await this.prisma.productOption.create({
-        data: {
-          productId,
-          name: option.name,
-          createdBy,
-          updatedBy: createdBy,
-        },
-      });
-
-      if (option.values && option.values.length > 0) {
-        await this.prisma.productOptionValue.createMany({
-          data: option.values.map((value, index) => ({
-            productOptionId: createdOption.id,
-            value: value.value,
-            sortOrder: value.sortOrder ?? index,
+    // 🔥 OPTIMIZED: Use transaction for all operations
+    await this.prisma.$transaction(async (tx) => {
+      for (const option of options) {
+        const createdOption = await tx.productOption.create({
+          data: {
+            productId,
+            name: option.name,
             createdBy,
             updatedBy: createdBy,
-          })),
+          },
         });
+
+        if (option.values && option.values.length > 0) {
+          await tx.productOptionValue.createMany({
+            data: option.values.map((value, index) => ({
+              productOptionId: createdOption.id,
+              value: value.value,
+              sortOrder: value.sortOrder ?? index,
+              createdBy,
+              updatedBy: createdBy,
+            })),
+          });
+        }
       }
-    }
-    // });
+    });
   }
 
   async removeOptions(

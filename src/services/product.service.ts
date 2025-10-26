@@ -20,14 +20,20 @@ import {
   VariantOptionValueMapping,
 } from '../types/product.types';
 import { generateSKU } from '../utils/sku.util';
-import { ProductWithRelations } from '../repositories/interfaces/product.interface';
 import { PaginatedResponse } from '../types/common';
-import { id } from 'ethers';
+import redis from '../config/redis';
+import { CacheUtil } from '../utils/cache.util';
 
 export class ProductService {
   constructor(private uow: IUnitOfWork) {}
 
   async findById(productId: string): Promise<ProductDetailResponse | null> {
+    const cacheKey = CacheUtil.productById(productId);
+    const cacheResult = await redis.get(cacheKey);
+    if (cacheResult) {
+      return JSON.parse(cacheResult);
+    }
+
     const product = await this.uow.products.findById(productId);
 
     if (!product) {
@@ -69,7 +75,7 @@ export class ProductService {
           imageUrl: img.imageUrl,
           isPrimary: img.isPrimary,
           sortOrder: img.sortOrder,
-        }))
+        })),
       })),
       images: product.images?.map((img) => ({
         id: img.id,
@@ -90,13 +96,24 @@ export class ProductService {
         id: pc.category.id,
         name: pc.category.name,
         parentCategoryId: pc.category.parentCategoryId ?? '',
-      }))
-    }
+      })),
+    };
+
+    await redis.set(cacheKey, JSON.stringify(productDetail), 600); // 10 phút
 
     return productDetail;
   }
 
-  async findMany(filters: ProductFilters) : Promise<PaginatedResponse<ProductResponse>> {
+  async findMany(
+    filters: ProductFilters
+  ): Promise<PaginatedResponse<ProductResponse>> {
+    // Tạo cache key từ filters
+    const cacheKey = CacheUtil.productsByFilters(filters);
+    const cacheResult = await redis.get(cacheKey);
+    if (cacheResult) {
+      return JSON.parse(cacheResult);
+    }
+
     const products = await this.uow.products.findMany(filters);
 
     const productResponses: ProductResponse[] = products.data.map((product) => ({
@@ -108,10 +125,10 @@ export class ProductService {
       reviewCount: product.reviewCount,
       createdAt: product.createdAt,
       imageUrl: product.images?.[0]?.imageUrl ?? '',
-      price: Number(product.variants?.[0]?.price)
+      price: Number(product.variants?.[0]?.price),
     }));
 
-    return {
+    const result = {
       data: productResponses,
       pagination: {
         total: products.pagination.total,
@@ -122,6 +139,11 @@ export class ProductService {
         hasPrev: products.pagination.hasPrev,
       },
     };
+
+    // Lưu vào cache 15 phút
+    await redis.set(cacheKey, JSON.stringify(result), 900);
+
+    return result;
   }
 
   async createDraftProduct(
@@ -151,6 +173,9 @@ export class ProductService {
       });
 
       console.log('Created product:', product);
+
+      // Invalidate cache
+      await this.invalidateProductCache(shop.id);
 
       return {
         id: product.id,
@@ -195,6 +220,9 @@ export class ProductService {
         updatedBy
       );
 
+      // Invalidate cache
+      await this.invalidateProductCache(product.shopId, productId);
+
       return {
         productId,
         categories: categories.map((cate) => ({
@@ -228,6 +256,9 @@ export class ProductService {
       const productWithOptions = await uow.products.findById(productId, {
         options: true,
       });
+
+      // Invalidate cache
+      await this.invalidateProductCache(product.shopId, productId);
 
       return {
         productId,
@@ -314,6 +345,9 @@ export class ProductService {
         createdVariants.push(variant);
       }
 
+      // Invalidate cache
+      await this.invalidateProductCache(product.shopId, productId);
+
       return {
         productId,
         variants: createdVariants.map((variant) => ({
@@ -390,6 +424,9 @@ export class ProductService {
         images: true,
       });
 
+      // Invalidate cache
+      await this.invalidateProductCache(product.shopId, productId);
+
       return {
         productId,
         images:
@@ -404,38 +441,93 @@ export class ProductService {
     });
   }
 
-  async updateProductStatus(productId: string, data: UpdateProductStatusInput, updatedBy: string) : Promise<ProductStatusResponse>{
+  async updateProductStatus(
+    productId: string,
+    data: UpdateProductStatusInput,
+    updatedBy: string
+  ): Promise<ProductStatusResponse> {
     return this.uow.executeInTransaction(async (uow) => {
-      const product = await uow.products.findById(productId, { shop: true, variants: true, images: true });
+      const product = await uow.products.findById(productId, {
+        shop: true,
+        variants: true,
+        images: true,
+      });
 
-      if(!product){
+      if (!product) {
         throw new NotFoundError('Product');
       }
 
-      if(product.shop?.ownerId !== updatedBy){
-        throw new ForbiddenError('Bạn không có quyền sửa đổi trạng thái sản phẩm này');
+      if (product.shop?.ownerId !== updatedBy) {
+        throw new ForbiddenError(
+          'Bạn không có quyền sửa đổi trạng thái sản phẩm này'
+        );
       }
 
-      if(data.status === ProductStatus.PUBLISHED){
-        if(!product.variants || product.variants.length === 0){
+      if (data.status === ProductStatus.PUBLISHED) {
+        if (!product.variants || product.variants.length === 0) {
           throw new ValidationError('Sản phẩm chưa có biến thể');
         }
 
-        if(!product.images || product.images.length === 0){
+        if (!product.images || product.images.length === 0) {
           throw new ValidationError('Sản phẩm chưa có hình ảnh');
         }
       }
 
       const updatedProduct = await uow.products.update(productId, {
         status: data.status,
-        updatedBy
+        updatedBy,
       });
+
+      // Invalidate cache
+      await this.invalidateProductCache(product.shopId, productId);
 
       return {
         id: updatedProduct.id,
         status: updatedProduct.status,
-        updatedAt: updatedProduct.updatedAt
+        updatedAt: updatedProduct.updatedAt,
       };
     });
+  }
+
+  // ==================== PRIVATE METHODS ====================
+  /**
+   * Invalidate cache liên quan đến product
+   */
+  private async invalidateProductCache(
+    shopId: string,
+    productId?: string
+  ): Promise<void> {
+    try {
+      const cachePatterns = [
+        ...(productId ? CacheUtil.productPatterns(productId) : CacheUtil.productPatterns()),
+        CacheUtil.shopPatterns(shopId),
+      ];
+
+      // Redis không hỗ trợ KEYS trong production, nên ta xóa các key cụ thể đã biết
+      for (const pattern of cachePatterns) {
+        // Xóa các key từ pattern bằng cách dùng SCAN hoặc xóa key cụ thể
+        if (typeof pattern === 'string' && !pattern.includes('*')) {
+          // Nếu là key cụ thể, xóa trực tiếp
+          await redis.del(pattern);
+        }
+      }
+
+      // Xóa các key cụ thể mà ta biết
+      if (productId) {
+        await redis.del(CacheUtil.productById(productId));
+      }
+      await redis.del(CacheUtil.productsByShop(shopId));
+
+      // Xóa cache list products (tất cả trang)
+      for (let page = 1; page <= 100; page++) {
+        // Giả sử có tối đa 100 trang cache
+        await redis.del(CacheUtil.productListAll(page, 10));
+        await redis.del(CacheUtil.productListAll(page, 20));
+        await redis.del(CacheUtil.productListAll(page, 50));
+      }
+    } catch (error) {
+      console.error('Error invalidating product cache:', error);
+      // Không throw error, chỉ log
+    }
   }
 }

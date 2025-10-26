@@ -82,6 +82,9 @@ export class CartController {
       if (quantity === undefined || typeof quantity !== 'number') {
         throw new ValidationError('Bắt buộc phải có số lượng hợp lệ');
       }
+      if(quantity < 1){
+        throw new ValidationError('Số lượng phải lớn hơn hoặc bằng 1');
+      }
 
       const result = await cartService.setItemQuantity(
         cartId,

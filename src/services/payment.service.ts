@@ -9,6 +9,8 @@ import {
   PaymentWebhookData,
 } from '../types/payment.types';
 import { PaginatedResponse } from '../types/common';
+import redis from '../config/redis';
+import { CacheUtil } from '../utils/cache.util';
 
 export class PaymentService {
   constructor(private uow: IUnitOfWork) {}
@@ -50,6 +52,9 @@ export class PaymentService {
         note: input.note || null,
       });
 
+      // Invalidate cache
+      await this.invalidatePaymentCache(undefined, orderId);
+
       return this.mapToPaymentResponse(payment);
     });
   }
@@ -64,6 +69,13 @@ export class PaymentService {
     paymentId: string,
     userId?: string
   ): Promise<PaymentResponse> {
+    // Kiểm tra cache trước
+    const cacheKey = CacheUtil.paymentById(paymentId);
+    const cachedPayment = await redis.get(cacheKey);
+    if (cachedPayment) {
+      return JSON.parse(cachedPayment);
+    }
+
     const payment = await this.uow.payments.findById(paymentId, {
       order: true,
       cashback: true,
@@ -74,22 +86,23 @@ export class PaymentService {
     }
 
     // Nếu có userId, kiểm tra quyền
-    if (userId && payment.orderId) {
-      const order = await this.uow.orders.findById(payment.orderId);
-      if (!order) {
-        throw new NotFoundError('Đơn hàng không tồn tại');
-      }
-
+    // 🔥 OPTIMIZED: Use already-fetched order instead of querying again
+    if (userId && payment.orderId && payment.order) {
       // Kiểm tra có phải chủ đơn hàng hoặc chủ shop
-      if (order.userId !== userId) {
-        const shop = await this.uow.shops.findById(order.shopId);
+      if (payment.order.userId !== userId) {
+        const shop = await this.uow.shops.findById(payment.order.shopId);
         if (!shop || shop.ownerId !== userId) {
           throw new ForbiddenError('Bạn không có quyền xem thanh toán này');
         }
       }
     }
 
-    return this.mapToPaymentResponse(payment);
+    const paymentResponse = this.mapToPaymentResponse(payment);
+
+    // Lưu vào cache 30 phút
+    await redis.set(cacheKey, JSON.stringify(paymentResponse), 1800);
+
+    return paymentResponse;
   }
 
   /**
@@ -98,6 +111,13 @@ export class PaymentService {
    * @returns 
    */
   async getPaymentByOrderId(orderId: string): Promise<PaymentResponse | null> {
+    // Kiểm tra cache trước
+    const cacheKey = CacheUtil.paymentByOrderId(orderId);
+    const cachedPayment = await redis.get(cacheKey);
+    if (cachedPayment) {
+      return JSON.parse(cachedPayment);
+    }
+
     const payment = await this.uow.payments.findByOrderId(orderId, {
       order: true,
       cashback: true,
@@ -107,7 +127,12 @@ export class PaymentService {
       return null;
     }
 
-    return this.mapToPaymentResponse(payment);
+    const paymentResponse = this.mapToPaymentResponse(payment);
+
+    // Lưu vào cache 30 phút
+    await redis.set(cacheKey, JSON.stringify(paymentResponse), 1800);
+
+    return paymentResponse;
   }
 
   /**
@@ -118,9 +143,21 @@ export class PaymentService {
   async getPayments(
     options?: PaymentSearchFilters
   ): Promise<PaginatedResponse<PaymentResponse>> {
+    const page = options?.page || 1;
+    const limit = options?.limit || 10;
+
+    // Tạo cache key
+    const cacheKey = CacheUtil.paymentsList(page, limit);
+
+    // Kiểm tra cache
+    const cachedResult = await redis.get(cacheKey);
+    if (cachedResult) {
+      return JSON.parse(cachedResult);
+    }
+
     const payments = await this.uow.payments.findMany({
-      skip: options?.page ? options.page * (options?.limit || 10) : 0,
-      take: options?.limit || 10,
+      skip: (page - 1) * limit,
+      take: limit,
       ...(options?.status && { status: options.status }),
       ...(options?.method && { method: options.method }),
       ...(options?.where && { where: options.where }),
@@ -128,17 +165,22 @@ export class PaymentService {
 
     const total = await this.uow.payments.count(options?.where);
 
-    return {
+    const result = {
       data: payments.map(this.mapToPaymentResponse),
       pagination: {
         total,
-        totalPages: Math.ceil(total / (options?.limit || 10)),
-        currentPage: options?.page || 0,
-        limit: options?.limit || 10,
-        hasNext: ((options?.page || 0) + 1) * (options?.limit || 10) < total,
-        hasPrev: (options?.page || 0) > 0,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        limit,
+        hasNext: (page + 1) * limit < total,
+        hasPrev: page > 1,
       },
     };
+
+    // Lưu vào cache 15 phút
+    await redis.set(cacheKey, JSON.stringify(result), 900);
+
+    return result;
   }
 
   /**
@@ -194,6 +236,9 @@ export class PaymentService {
       if (!result) {
         throw new NotFoundError('Thanh toán không tồn tại');
       }
+
+      // Invalidate cache
+      await this.invalidatePaymentCache(paymentId, payment.orderId);
 
       return this.mapToPaymentResponse(result);
     });
@@ -309,6 +354,13 @@ export class PaymentService {
     endDate?: Date;
     method?: PaymentMethod;
   }) {
+    // Kiểm tra cache trước
+    const cacheKey = CacheUtil.paymentStatistics();
+    const cachedStats = await redis.get(cacheKey);
+    if (cachedStats) {
+      return JSON.parse(cachedStats);
+    }
+
     const where: any = {
       status: PaymentStatus.PAID,
       ...(filters?.startDate && {
@@ -325,11 +377,16 @@ export class PaymentService {
       this.uow.payments.count(where),
     ]);
 
-    return {
+    const stats = {
       totalAmount,
       totalCount,
       averageAmount: totalCount > 0 ? totalAmount / totalCount : 0,
     };
+
+    // Lưu vào cache 1 giờ
+    await redis.set(cacheKey, JSON.stringify(stats), 3600);
+
+    return stats;
   }
 
   //#region Private methods
@@ -368,15 +425,45 @@ export class PaymentService {
       failureReason: payment.failureReason,
       note: payment.note,
       cashback: {
-            id: payment.cashback.id,
-            amount: Number(payment.cashback.amount),
-            status: payment.cashback.status,
-          }
-        ,
+        id: payment.cashback.id,
+        amount: Number(payment.cashback.amount),
+        status: payment.cashback.status,
+      },
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
     };
   }
 
   //#endregion
+
+  // ==================== PRIVATE CACHE METHODS ====================
+  /**
+   * Invalidate cache liên quan đến payment
+   */
+  private async invalidatePaymentCache(
+    paymentId?: string,
+    orderId?: string
+  ): Promise<void> {
+    try {
+      if (paymentId) {
+        await redis.del(CacheUtil.paymentById(paymentId));
+      }
+
+      if (orderId) {
+        await redis.del(CacheUtil.paymentByOrderId(orderId));
+      }
+
+      // Xóa payment list caches
+      for (let page = 1; page <= 50; page++) {
+        await redis.del(CacheUtil.paymentsList(page, 10));
+        await redis.del(CacheUtil.paymentsList(page, 20));
+        await redis.del(CacheUtil.paymentsList(page, 50));
+      }
+
+      // Xóa payment statistics
+      await redis.del(CacheUtil.paymentStatistics());
+    } catch (error) {
+      console.error('Error invalidating payment cache:', error);
+    }
+  }
 }
