@@ -109,7 +109,10 @@ export class ProductService {
   ): Promise<PaginatedResponse<ProductResponse>> {
     // Tạo cache key từ filters
     const cacheKey = CacheUtil.productsByFilters(filters);
-    const cacheResult = await redis.get(cacheKey);
+    const cacheResult = await redis.get(cacheKey).catch(err => {
+      console.error('Redis get error:', err);
+      return null;
+    });
     if (cacheResult) {
       return JSON.parse(cacheResult);
     }

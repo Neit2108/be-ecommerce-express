@@ -161,16 +161,11 @@ export class ProductRepository implements IProductRepository {
 
     // Filter theo từ khóa tìm kiếm
     if (filters.searchTerm) {
-      const keywords = filters.searchTerm
-        .split(' ')
-        .filter((k) => k.trim() !== '');
-
-      where.OR = keywords.map((word) => ({
-        name: {
-          contains: word,
-          mode: 'insensitive',
-        },
-      }));
+      // Tìm kiếm không phân biệt hoa thường
+      where.name = {
+        contains: filters.searchTerm,
+        mode: 'insensitive',
+      };
     }
 
     // ===== OrderBy (Sort) =====
@@ -178,22 +173,27 @@ export class ProductRepository implements IProductRepository {
       [sortBy]: sortOrder,
     };
 
-    // ===== Pagination calculation =====
+    // ===== Pagination =====
     const skip = (page - 1) * limit;
 
     // ===== Query database =====
-    const products = await this.prisma.product.findMany({
-      where,
-      orderBy,
-      skip,
-      take: limit,
-      include: {
-        images: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } },
-        variants: { where: { deletedAt: null } },
-      },
-    });
-
-    const total = await this.prisma.product.count({ where });
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        include: {
+          images: {
+            where: { deletedAt: null },
+            orderBy: { sortOrder: 'asc' },
+            take: 1,
+          },
+          variants: { where: { deletedAt: null }, take: 1 },
+        },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
 
     // ===== Return response =====
     return {

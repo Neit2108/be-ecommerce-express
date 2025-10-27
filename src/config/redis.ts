@@ -71,10 +71,7 @@ class Redis {
   ): Promise<void> {
     try {
       if (expireInSeconds) {
-        // Cách 1: dùng setEx
         await this.client.setEx(key, expireInSeconds, value);
-
-        // Cách 2 (tương đương): await this.client.set(key, value, { EX: expireInSeconds });
       } else {
         await this.client.set(key, value);
       }

@@ -1,4 +1,4 @@
-import { OrderStatus, PaymentMethod, Prisma, ShippingMethod } from "@prisma/client";
+import { OrderStatus, PaymentMethod, PaymentStatus, Prisma, ShippingMethod } from "@prisma/client";
 import { PaginationParams } from "./common";
 
 export interface OrderSearchFilters extends PaginationParams{

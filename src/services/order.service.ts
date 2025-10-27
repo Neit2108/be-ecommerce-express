@@ -282,6 +282,8 @@ export class OrderService {
         uow.productVariants.batchUpdateStock(stockUpdates), // Single query
         this.createPaymentForOrder(uow, order, input.paymentMethod),
         uow.cartItem.deleteByCartId(cart.id),
+        redis.del(CacheUtil.cartByUserId(userId)), // xóa cache giỏ hàng
+        redis.del(CacheUtil.cartByUserId(userId)),
       ]);
 
       // cache
