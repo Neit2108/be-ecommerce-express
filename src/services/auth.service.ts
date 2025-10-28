@@ -12,6 +12,7 @@ import {
   ChangePasswordInput,
   PasswordResetInput,
   PasswordResetConfirmInput,
+  UserResponse,
 } from '../types/auth.types';
 import {
   EmailExistsError,
@@ -25,12 +26,14 @@ import {
   ExternalServiceError,
 } from '../errors/AppError';
 import { CreateUserInput } from '../types/user.types';
+import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
 
 export class AuthService {
   private readonly prisma: PrismaClient;
 
-  constructor() {
+  constructor(private uow: IUnitOfWork) {
     this.prisma = prisma;
+    
   }
 
   private excludePassword(user: User): Omit<User, 'password'> {
@@ -57,11 +60,15 @@ export class AuthService {
 
       const user = await userService.createUser(payload);
 
+      const roles = await this.uow.userRoles.findByUserIdWithRoles(user.id);
+      const roleTypes = roles.map((ur) => ur.role.type);
+
       // Generate tokens
       const accessToken = JwtUtils.generateAccessToken({
         userId: user.id,
         email: user.email,
         status: user.status,
+        roles: roleTypes,
       });
 
       const refreshToken = JwtUtils.generateRefreshToken(user.id);
@@ -103,12 +110,7 @@ export class AuthService {
   async login(data: LoginInput): Promise<AuthResponse> {
     try {
       // Find user by email
-      const user = await this.prisma.user.findFirst({
-        where: {
-          email: data.email.toLowerCase(),
-          deletedAt: null,
-        },
-      });
+      const user = await this.uow.users.findByEmail(data.email);
 
       if (!user) {
         throw new InvalidCredentialsError();
@@ -133,16 +135,18 @@ export class AuthService {
       }
 
       // Update last login
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() },
-      });
+      await this.uow.users.update({ id: user.id }, { lastLoginAt: new Date() });
+
+      const roles = await this.uow.userRoles.findByUserIdWithRoles(user.id);
+
+      const roleTypes = roles.map((ur) => ur.role.type);
 
       // Generate tokens
       const accessToken = JwtUtils.generateAccessToken({
         userId: user.id,
         email: user.email,
         status: user.status,
+        roles: roleTypes,
       });
 
       const refreshToken = JwtUtils.generateRefreshToken(user.id);
@@ -158,8 +162,21 @@ export class AuthService {
         );
       }
 
+      const userResponse: UserResponse = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber ?? '',
+        address: user.address ?? '',
+        birthday: user.birthday ?? null,
+        avatarUrl: user.avatarUrl ?? '',
+        roles: roleTypes,
+        status: user.status,
+      };
+
       return {
-        user: this.excludePassword(user),
+        user: userResponse,
         accessToken,
         refreshToken,
         expiresIn: JwtUtils.getTokenExpirationTime(),
@@ -205,12 +222,7 @@ export class AuthService {
       }
 
       // Get user
-      const user = await this.prisma.user.findFirst({
-        where: {
-          id: payload.userId,
-          deletedAt: null,
-        },
-      });
+      const user = await this.uow.users.findById(payload.userId);
 
       if (!user) {
         throw new UserNotFoundError();
@@ -223,11 +235,15 @@ export class AuthService {
         throw new AccountSuspendedError();
       }
 
+      const roles = await this.uow.userRoles.findByUserIdWithRoles(user.id);
+      const roleTypes = roles.map((ur) => ur.role.type);
+
       // Generate new access token
       const accessToken = JwtUtils.generateAccessToken({
         userId: user.id,
         email: user.email,
         status: user.status,
+        roles: roleTypes,
       });
 
       return {
@@ -442,20 +458,31 @@ export class AuthService {
     }
   }
 
-  async getProfile(userId: string): Promise<Omit<User, 'password'> | null> {
+  async getProfile(userId: string): Promise<UserResponse | null> {
     try {
-      const user = await this.prisma.user.findFirst({
-        where: {
-          id: userId,
-          deletedAt: null,
-        },
-      });
+      const user = await this.uow.users.findById(userId);
 
       if (!user) {
         return null;
       }
 
-      return this.excludePassword(user);
+      const roles = await this.uow.userRoles.findByUserIdWithRoles(user.id);
+      const roleTypes = roles.map((ur) => ur.role.type);
+
+      const userResponse: UserResponse = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber ?? '',
+        address: user.address ?? '',
+        birthday: user.birthday ?? null,
+        avatarUrl: user.avatarUrl ?? '',
+        roles: roleTypes,
+        status: user.status,
+      };
+
+      return userResponse;
     } catch (error) {
       if ((error as any).code && (error as any).code.startsWith('P')) {
         throw PrismaErrorHandler.handle(error);
@@ -465,5 +492,3 @@ export class AuthService {
     }
   }
 }
-
-export const authService = new AuthService();

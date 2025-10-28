@@ -5,7 +5,6 @@ import { DateUtils } from '../utils/date.util';
 import {
   CreateUserInput,
   UpdateUserInput,
-  UserResponse,
   UserSearchFilters,
   UserStatistics,
   UserQueryOptions,
@@ -18,6 +17,7 @@ import {
 } from '../errors/AppError';
 import redis from '../config/redis';
 import { CacheUtil } from '../utils/cache.util';
+import { UserResponse } from '../types/auth.types';
 
 export class UserService {
   constructor(private uow: IUnitOfWork) {}

@@ -2,10 +2,8 @@ import { User, Prisma ,UserStatus, Gender} from '@prisma/client';
 import { IAuditable, IDeletable, PaginationParams } from './common';
 
 // User without sensitive data
-export interface UserResponse extends Omit<User, 'password'> {}
 
 // User with full data (for internal use)
-export interface UserEntity extends User, IAuditable, IDeletable {}
 
 // Create user input
 export interface CreateUserInput {

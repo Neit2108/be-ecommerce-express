@@ -19,8 +19,21 @@ export interface LoginInput {
 }
 
 // Auth response
+export interface UserResponse {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  address?: string;
+  birthday?: Date | null;
+  avatarUrl?: string;
+  roles?: string[];
+  status: UserStatus;
+}
+
 export interface AuthResponse {
-  user: Omit<User, 'password'>;
+  user: UserResponse;
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
@@ -31,6 +44,7 @@ export interface JwtPayload {
   userId: string;
   email: string;
   status: UserStatus;
+  roles: string[];
   iat?: number;
   exp?: number;
 }

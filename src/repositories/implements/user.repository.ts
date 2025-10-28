@@ -171,11 +171,10 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async findByEmail(email: string, include?: Prisma.UserInclude): Promise<User | null> {
+  async findByEmail(email: string): Promise<User | null> {
     try {
       return await this.prisma.user.findUnique({
-        where: { email },
-        include: include ?? null,
+        where: { email, deletedAt: null },
       });
     } catch (error) {
       if ((error as any).code?.startsWith('P')) {

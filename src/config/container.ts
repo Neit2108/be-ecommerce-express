@@ -12,8 +12,10 @@ import { PaymentService } from '../services/payment.service';
 import { CashbackService } from '../services/cashback.service';
 import { CashbackCronService } from '../services/cashback-cron.service';
 import { BlockchainService } from '../services/blockchain.service';
+import { AuthService } from '../services/auth.service';
 
 const unitOfWork = new UnitOfWork(prisma);
+export const authService = new AuthService(unitOfWork);
 export const permissionService = new PermissionService();
 export const userService = new UserService(unitOfWork);
 export const productService = new ProductService(unitOfWork);

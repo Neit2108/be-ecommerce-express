@@ -103,10 +103,9 @@ export interface IUserRepository {
   /**
    * Tìm kiếm người dùng theo địa chỉ email
    * @param email - Địa chỉ email cần tìm kiếm
-   * @param include - Các quan hệ cần include khi truy vấn (tùy chọn)
    * @returns Promise trả về đối tượng User hoặc null nếu không tìm thấy
    */
-  findByEmail(email: string, include?: Prisma.UserInclude): Promise<User | null>;
+  findByEmail(email: string): Promise<User | null>;
   
   /**
    * Tìm kiếm người dùng theo số điện thoại

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { authService } from '../services/auth.service';
+import { authService } from '../config/container';
 import { ApiResponse } from '../types/common';
 import { ValidationError } from '../errors/AppError';
 import { asyncHandler } from '../middleware/errorHandler';
