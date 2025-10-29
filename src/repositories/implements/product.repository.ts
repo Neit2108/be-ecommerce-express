@@ -110,6 +110,12 @@ export class ProductRepository implements IProductRepository {
     });
   }
 
+  async findUnique(where: Prisma.ProductWhereUniqueInput): Promise<Product | null> {
+    return this.prisma.product.findUnique({
+      where,
+    });
+  }
+
   async findMany(
     filters: ProductFilters
   ): Promise<
@@ -393,28 +399,9 @@ export class ProductRepository implements IProductRepository {
   }
 
   // Count methods
-  async count(filters?: ProductFilters): Promise<number> {
-    const where: Prisma.ProductWhereInput = {
-      deletedAt: null,
-      ...(filters?.status && { status: filters.status }),
-      ...(filters?.categoryId && {
-        categories: {
-          some: {
-            categoryId: filters.categoryId,
-            deletedAt: null,
-          },
-        },
-      }),
-      ...(filters?.searchTerm && {
-        name: {
-          contains: filters.searchTerm,
-          mode: 'insensitive',
-        },
-      }),
-    };
-
+  async count(filters: Prisma.ProductWhereInput): Promise<number> {
     return this.prisma.product.count({
-      where,
+      where: filters,
     });
   }
 

@@ -106,6 +106,8 @@ export interface IProductRepository {
     PaginatedResponse<TProductWithRelations<{ images: true; variants: true }>>
   >;
 
+  findUnique(where: Prisma.ProductWhereUniqueInput): Promise<Product | null>;
+
   /**
    * Thêm nhiều hình ảnh cho sản phẩm
    * @param {string} productId - ID của sản phẩm
@@ -207,7 +209,7 @@ export interface IProductRepository {
    * @param {ProductFilters} [filters] - Bộ lọc (tùy chọn)
    * @returns {Promise<number>} - Tổng số sản phẩm
    */
-  count(filters?: ProductFilters): Promise<number>;
+  count(filters?: Prisma.ProductWhereInput): Promise<number>;
   /**
    * Đếm số sản phẩm theo shop
    * @param {string} shopId - ID của shop
