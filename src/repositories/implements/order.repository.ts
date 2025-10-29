@@ -8,6 +8,10 @@ export class OrderRepository implements IOrderRepository {
     return this.prisma.order.create({ data });
   }
 
+  async findMany(filters: Prisma.OrderFindManyArgs): Promise<Order[]> {
+    return this.prisma.order.findMany(filters);
+  }
+
   async findById(id: string, include?: OrderIncludes): Promise<Order | null> {
     return this.prisma.order.findUnique({
       where: { id },

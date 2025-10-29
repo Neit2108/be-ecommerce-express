@@ -9,6 +9,8 @@ import {
 import { ValidationError } from '../errors/AppError';
 import { orderService } from '../config/container';
 import { ApiResponse } from '../types/common';
+import { OrderFilters } from '../types/order.types';
+import { OrderStatus } from '@prisma/client';
 
 export class OrderController {
   /**
@@ -37,6 +39,24 @@ export class OrderController {
         data: result,
       };
       res.status(201).json(response);
+    }
+  );
+
+  getOrders = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const filters: OrderFilters = {
+        status: req.query.status as OrderStatus,
+        page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 10,
+      }
+
+      const orders = await orderService.getOrders(filters);
+      const response: ApiResponse = {
+        success: true,
+        data: orders,
+        message: 'Lấy danh sách đơn hàng thành công',
+      };
+      res.json(response);
     }
   );
 

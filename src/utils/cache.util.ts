@@ -75,6 +75,17 @@ export class CacheUtil {
     return `order:number:${orderNumber}`;
   }
 
+  static ordersByFilters(filters: Record<string, any>): string {
+    const key = `orders:list:${JSON.stringify(filters)
+      .split('')
+      .reduce((hash, char) => ((hash << 5) - hash) + char.charCodeAt(0), 0)}`;
+    return key;
+  }
+
+  static orderListAll(page: number, limit: number): string {
+    return `orders:all:page:${page}:limit:${limit}`;
+  }
+
   static userOrders(userId: string, page: number, limit: number): string {
     return `orders:user:${userId}:page:${page}:limit:${limit}`;
   }

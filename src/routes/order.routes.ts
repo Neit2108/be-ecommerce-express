@@ -15,6 +15,17 @@ router.post(
   combineMiddleware(authenticateToken, requireStatus([UserStatus.ACTIVE])),
   orderController.createOrder
 );
+
+router.get(
+  '/all',
+  combineMiddleware(
+    authenticateToken,
+    requireStatus([UserStatus.ACTIVE]),
+    requireRole(RoleType.SYSTEM_ADMIN)
+  ),
+  orderController.getOrders
+);
+
 router.get(
   '/:orderId',
   combineMiddleware(authenticateToken, requireStatus([UserStatus.ACTIVE])),

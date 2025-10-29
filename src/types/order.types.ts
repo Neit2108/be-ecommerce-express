@@ -1,5 +1,5 @@
 import { OrderStatus, PaymentMethod, PaymentStatus, Prisma, ShippingMethod } from "@prisma/client";
-import { PaginationParams } from "./common";
+import { PaginationParams } from './common';
 
 export interface OrderSearchFilters extends PaginationParams{
   createdFrom?: Date;
@@ -108,3 +108,11 @@ export type OrderListResponse = {
   skip: number;
   take: number;
 };
+
+export interface OrderFilters extends PaginationParams {
+  status?: OrderStatus;
+  paymentStatus?: string;
+  minTotalAmount?: number;
+  maxTotalAmount?: number;
+  shopId?: string;
+}

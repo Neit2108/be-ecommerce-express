@@ -1,4 +1,9 @@
-import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  Prisma,
+} from '@prisma/client';
 import {
   ForbiddenError,
   NotFoundError,
@@ -7,6 +12,7 @@ import {
 import { IUnitOfWork } from '../repositories/interfaces/uow.interface';
 import {
   CreateOrderInput,
+  OrderFilters,
   OrderResponse,
   OrderSearchFilters,
   UpdateOrderStatusInput,
@@ -14,7 +20,7 @@ import {
 import { PaginatedResponse } from '../types/common';
 import redis from '../config/redis';
 import { CacheUtil } from '../utils/cache.util';
-import { id } from 'ethers';
+import { filter } from 'compression';
 
 export class OrderService {
   constructor(private uow: IUnitOfWork) {}
@@ -298,7 +304,7 @@ export class OrderService {
         totalAmount: Number(order.totalAmount),
         customerNote: order.customerNote,
         shopNote: order.shopNote,
-        items: orderItemsData.map(item => ({
+        items: orderItemsData.map((item) => ({
           id: '', // Chưa có ID vì mới tạo
           productId: item.productId,
           variantId: item.productVariantId,
@@ -312,6 +318,55 @@ export class OrderService {
         })),
       };
     });
+  }
+
+  async getOrders(
+    filters: OrderFilters
+  ): Promise<PaginatedResponse<OrderResponse>> {
+    const cacheKey = CacheUtil.ordersByFilters(filters);
+    const cachedResult = await redis.get(cacheKey);
+    if (cachedResult) {
+      return JSON.parse(cachedResult);
+    }
+
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const sortBy = filters.sortBy || 'createdAt';
+    const sortOrder = filters.sortOrder || 'desc';
+
+    const orderFindManyArgs: Prisma.OrderFindManyArgs = {
+      where: {
+        ...(filters.shopId ? { shopId: filters.shopId } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+      },
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    };
+
+    const [orders, total] = await Promise.all([
+      this.uow.orders.findMany(orderFindManyArgs),
+      this.uow.orders.count(orderFindManyArgs.where),
+    ]);
+
+    const result = {
+      data: orders.map((o) => this.mapToOrderResponse(o)),
+      pagination: {
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        limit,
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
+
+    // Lưu vào cache 15 phút
+    await redis.set(cacheKey, JSON.stringify(result), 900);
+
+    return result;
   }
 
   /**

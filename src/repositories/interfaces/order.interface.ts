@@ -8,6 +8,9 @@ export interface IOrderRepository{
      * @returns Promise<Order>
      */
     create(data: Prisma.OrderCreateInput): Promise<Order>;
+
+    findMany(filters: Prisma.OrderFindManyArgs): Promise<Order[]>;
+
     /**
    * Tìm đơn hàng theo ID
    * @param id - ID của đơn hàng
