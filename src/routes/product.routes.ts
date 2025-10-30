@@ -35,7 +35,7 @@ router.post(
   productController.createDraftProduct
 );
 router.put(
-  '/:id/categories',
+  '/:productId/categories',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
@@ -52,7 +52,7 @@ router.put(
   productController.addCategoriesToProduct
 );
 router.post(
-  '/:id/options',
+  '/:productId/options',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
@@ -69,7 +69,7 @@ router.post(
   productController.addOptionsToProduct
 );
 router.post(
-  '/:id/variants',
+  '/:productId/variants',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),

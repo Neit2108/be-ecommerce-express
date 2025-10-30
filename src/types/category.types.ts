@@ -1,4 +1,4 @@
-import { PaginationParams } from "./common";
+import { PaginationParams } from './common';
 
 export interface CategoryIncludes {
   parentCategory?: boolean;
@@ -7,6 +7,12 @@ export interface CategoryIncludes {
 }
 
 export interface CategoryFilters extends PaginationParams {
-    searchTerm?: string;
-    parentId?: string;
+  searchTerm?: string;
+  parentId?: string;
+}
+
+export interface CategoryResponse {
+  id: string;
+  name: string;
+  description?: string;
 }

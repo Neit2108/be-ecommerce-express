@@ -10,7 +10,7 @@ export const createDraftProductSchema = Joi.object({
     'string.uuid': 'Shop ID phải là một UUID hợp lệ',
     'any.required': 'Shop ID là bắt buộc'
   }),
-  description: Joi.string().max(2000).optional().messages({
+  description: Joi.string().max(2000).allow(null, '').optional().messages({
     'string.max': 'Mô tả không được vượt quá 2000 ký tự'
   })
 });

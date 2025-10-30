@@ -23,6 +23,7 @@ import { generateSKU } from '../utils/sku.util';
 import { PaginatedResponse } from '../types/common';
 import redis from '../config/redis';
 import { CacheUtil } from '../utils/cache.util';
+import { CategoryResponse } from '../types/category.types';
 
 export class ProductService {
   constructor(private uow: IUnitOfWork) {}
@@ -177,8 +178,10 @@ export class ProductService {
 
       console.log('Created product:', product);
 
+      console.log('this.invalidateProductCache:', this.invalidateProductCache);
+
       // Invalidate cache
-      await this.invalidateProductCache(shop.id);
+      // await this.invalidateProductCache(shop.id);
 
       return {
         id: product.id,
@@ -187,6 +190,7 @@ export class ProductService {
         status: product.status,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
+        description: data.description || '',
       };
     });
   }
@@ -224,7 +228,7 @@ export class ProductService {
       );
 
       // Invalidate cache
-      await this.invalidateProductCache(product.shopId, productId);
+      // await this.invalidateProductCache(product.shopId, productId);
 
       return {
         productId,
@@ -261,7 +265,7 @@ export class ProductService {
       });
 
       // Invalidate cache
-      await this.invalidateProductCache(product.shopId, productId);
+      // await this.invalidateProductCache(product.shopId, productId);
 
       return {
         productId,
@@ -320,7 +324,7 @@ export class ProductService {
           name: variantData.name,
           value: variantData.value,
           price: variantData.price,
-          currency: variantData.currency ?? 'VND',
+          currency: 'VND',
           description: variantData.description ?? null,
           status: ProductStatus.DRAFT,
           createdBy: updatedBy,
@@ -349,7 +353,7 @@ export class ProductService {
       }
 
       // Invalidate cache
-      await this.invalidateProductCache(product.shopId, productId);
+      // await this.invalidateProductCache(product.shopId, productId);
 
       return {
         productId,

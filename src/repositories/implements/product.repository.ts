@@ -284,9 +284,8 @@ export class ProductRepository implements IProductRepository {
     createdBy: string
   ): Promise<void> {
     // 🔥 OPTIMIZED: Use transaction for all operations
-    await this.prisma.$transaction(async (tx) => {
       for (const option of options) {
-        const createdOption = await tx.productOption.create({
+        const createdOption = await this.prisma.productOption.create({
           data: {
             productId,
             name: option.name,
@@ -296,7 +295,7 @@ export class ProductRepository implements IProductRepository {
         });
 
         if (option.values && option.values.length > 0) {
-          await tx.productOptionValue.createMany({
+          await this.prisma.productOptionValue.createMany({
             data: option.values.map((value, index) => ({
               productOptionId: createdOption.id,
               value: value.value,
@@ -307,7 +306,6 @@ export class ProductRepository implements IProductRepository {
           });
         }
       }
-    });
   }
 
   async removeOptions(

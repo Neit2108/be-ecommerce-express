@@ -14,6 +14,7 @@ import { CashbackCronService } from '../services/cashback-cron.service';
 import { BlockchainService } from '../services/blockchain.service';
 import { AuthService } from '../services/auth.service';
 import { AdminService } from '../services/admin.service';
+import { CategoryService } from '../services/category.service';
 
 const unitOfWork = new UnitOfWork(prisma);
 export const adminService = new AdminService(unitOfWork);
@@ -30,3 +31,4 @@ export const paymentService = new PaymentService(unitOfWork);
 export const blockchainService = new BlockchainService();
 export const cashbackService = new CashbackService(unitOfWork, blockchainService);
 export const cashbackCronService = new CashbackCronService(cashbackService, paymentService);
+export const categoryService = new CategoryService(unitOfWork);

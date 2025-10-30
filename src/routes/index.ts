@@ -1,4 +1,3 @@
-// src/routes/index.ts
 import { Router } from 'express';
 import authRoutes from './auth.routes';
 import healthRoutes from './health.routes';
@@ -8,6 +7,7 @@ import shopRoutes from './shop.routes';
 import cartRoutes from './cart.routes';
 import orderRoutes from './order.routes';
 import adminRoutes from './admin.routes';
+import categoryRoutes from './category.route';
 
 const router = Router();
 
@@ -37,5 +37,6 @@ router.use('/health', healthRoutes);
 router.use('/api/cart', cartRoutes);
 router.use('/api/orders', orderRoutes);
 router.use('/api/admin', adminRoutes);
+router.use('/api/categories', categoryRoutes);
 
 export default router;

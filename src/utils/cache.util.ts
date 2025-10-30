@@ -28,6 +28,9 @@ export class CacheUtil {
     return `products:category:${categoryId}`;
   }
 
+  static categoriesByName(name: string): string {
+    return `categories:name:${name.toLowerCase()}`;
+  }
   // ==================== USER ====================
   static userById(id: string): string {
     return `user:${id}`;
