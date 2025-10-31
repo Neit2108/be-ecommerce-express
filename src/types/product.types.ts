@@ -184,6 +184,7 @@ export interface CreateProductVariantInput {
   price: number;
   currency?: string;
   description?: string;
+  imageUrls?: string[];
   optionCombination?: Record<string, string>; // { "color": "red", "size": "M" }
 }
 

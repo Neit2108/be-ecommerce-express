@@ -55,7 +55,8 @@ const createProductVariantSchema = Joi.object({
   value: Joi.string().trim().min(1).max(100).required(),
   price: Joi.number().positive().precision(2).required(),
   currency: Joi.string().length(3).uppercase().default('VND'),
-  description: Joi.string().max(1000).optional(),
+  imageUrls: Joi.array().items(Joi.string().uri()).optional(),
+  description: Joi.string().max(1000).optional().allow(null, ''),
   optionCombination: Joi.object().pattern(
     Joi.string(),
     Joi.string()
@@ -87,7 +88,7 @@ const addProductImageSchema = Joi.object({
   imageUrl: Joi.string().uri().required(),   // bắt buộc là URL hợp lệ
   isPrimary: Joi.boolean().optional(),
   sortOrder: Joi.number().integer().optional(),
-  description: Joi.string().max(255).optional()
+  description: Joi.string().max(255).optional().allow(null, '')
 });
 
 export const addProductImagesSchema = Joi.object({

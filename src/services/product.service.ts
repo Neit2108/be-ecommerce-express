@@ -24,6 +24,7 @@ import { PaginatedResponse } from '../types/common';
 import redis from '../config/redis';
 import { CacheUtil } from '../utils/cache.util';
 import { CategoryResponse } from '../types/category.types';
+import { create } from 'domain';
 
 export class ProductService {
   constructor(private uow: IUnitOfWork) {}
@@ -329,6 +330,16 @@ export class ProductService {
           status: ProductStatus.DRAFT,
           createdBy: updatedBy,
           updatedBy: updatedBy,
+          images: {
+            create: variantData.imageUrls?.map((url, index) => ({
+              imageUrl: url,
+              isPrimary: index === 0,
+              sortOrder: index,
+              createdBy: updatedBy,
+              updatedBy: updatedBy,
+              productId: product.id,
+            })) ?? [],
+          }
         });
 
         if (
@@ -486,7 +497,7 @@ export class ProductService {
       });
 
       // Invalidate cache
-      await this.invalidateProductCache(product.shopId, productId);
+      // await this.invalidateProductCache(product.shopId, productId);
 
       return {
         id: updatedProduct.id,
