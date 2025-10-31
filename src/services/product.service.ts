@@ -432,7 +432,7 @@ export class ProductService {
       });
 
       // Invalidate cache
-      await this.invalidateProductCache(product.shopId, productId);
+      // await this.invalidateProductCache(product.shopId, productId);
 
       return {
         productId,

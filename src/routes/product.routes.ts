@@ -86,7 +86,7 @@ router.post(
   productController.addVariantsToProduct
 );
 router.post(
-  '/:id/images',
+  '/:productId/images',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),
@@ -103,7 +103,7 @@ router.post(
   productController.addImagesToProduct
 );
 router.put(
-  '/:id/status',
+  '/:productId/status',
   combineMiddleware(
     authenticateToken,
     requireStatus([UserStatus.ACTIVE]),

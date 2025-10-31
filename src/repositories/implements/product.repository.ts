@@ -228,8 +228,11 @@ export class ProductRepository implements IProductRepository {
       updatedBy: createdBy,
     }));
 
+    console.log('images', images);
+    console.log('imagesWithMeta', imagesWithMeta);
+
     await this.prisma.productImage.createMany({
-      data: imagesWithMeta,
+      data: images,
     });
   }
 
