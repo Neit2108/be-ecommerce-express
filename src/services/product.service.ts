@@ -202,7 +202,10 @@ export class ProductService {
     updatedBy: string
   ): Promise<ProductCategoriesResponse> {
     return this.uow.executeInTransaction(async (uow) => {
-      const product = await uow.products.findById(productId, { shop: true });
+      const [product, categories] = await Promise.all([
+        uow.products.findById(productId, { shop: true }),
+        uow.categories.findManyByIds(data.categoryIds)
+      ]);
 
       if (!product) {
         throw new NotFoundError('Product');
@@ -213,15 +216,10 @@ export class ProductService {
         );
       }
 
-      const categories = [];
-      for (const categoryId of data.categoryIds) {
-        const category = await uow.categories.findById(categoryId);
-        if (!category) {
-          throw new NotFoundError('Category');
-        }
-        categories.push(category);
+      if (categories.length !== data.categoryIds.length) {
+        throw new NotFoundError('Category');
       }
-
+      
       await uow.productCategories.replaceProductCategories(
         productId,
         data.categoryIds,
@@ -290,6 +288,23 @@ export class ProductService {
     data: AddProductVariantsInput,
     updatedBy: string
   ): Promise<ProductVariantsResponse> {
+    // validate
+    if(data.variants.length === 0) {
+      throw new ValidationError('Phải có ít nhất một biến thể sản phẩm');
+    }
+
+    // tên tron data không được trùng nhau
+    const names = new Set<string>();
+    for(const variant of data.variants) {
+      if(!variant.name || variant.name.trim() === '') {
+        throw new ValidationError('Tên biến thể không được để trống');
+      }
+      if(names.has(variant.name.trim().toLowerCase())) {
+        throw new ValidationError(`Tên biến thể '${variant.name}' bị trùng`);
+      }
+      names.add(variant.name.trim().toLowerCase());
+    }
+
     return this.uow.executeInTransaction(async (uow) => {
       const product = await uow.products.findById(productId, {
         shop: true,

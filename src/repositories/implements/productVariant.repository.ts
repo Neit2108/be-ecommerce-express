@@ -114,6 +114,19 @@ export class ProductVariantRepository implements IProductVariantRepository {
     });
   }
 
+  async findBySkus(skus: string[]): Promise<ProductVariant[]> {
+    if (skus.length === 0) {
+      return [];
+    }
+
+    return this.prisma.productVariant.findMany({
+      where: {
+        sku: { in: skus },
+        deletedAt: null,
+      },
+    });
+  }
+
   async update(
     id: string,
     data: Prisma.ProductVariantUpdateInput

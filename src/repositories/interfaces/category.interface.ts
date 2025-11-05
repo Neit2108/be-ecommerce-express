@@ -27,6 +27,9 @@ export interface ICategoryRepository {
     id: string,
     include?: CategoryIncludes
   ): Promise<CategoryWithRelations | null>;
+
+  findManyByIds(ids: string[]): Promise<CategoryWithRelations[]>;
+
   /**
    * Cập nhật thông tin danh mục
    * @param {string} id - ID của danh mục

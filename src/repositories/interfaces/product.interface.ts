@@ -260,6 +260,9 @@ export interface IProductVariantRepository {
    * @returns {Promise<ProductVariant | null>} - Biến thể hoặc null
    */
   findBySku(sku: string): Promise<ProductVariant | null>;
+
+  findBySkus(skus: string[]): Promise<ProductVariant[]>;
+
   /**
    * Cập nhật thông tin biến thể
    * @param {string} id - ID của biến thể

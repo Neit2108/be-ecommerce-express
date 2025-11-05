@@ -49,6 +49,20 @@ export class CategoryRepository implements ICategoryRepository {
     });
   }
 
+  async findManyByIds(ids: string[]): Promise<CategoryWithRelations[]> {
+    return this.prisma.category.findMany({
+      where: {
+        id: { in: ids },
+        deletedAt: null,
+      },
+      include: {
+        parentCategory: true,
+        childCategories: true,
+        products: true,
+      },
+    });
+  }
+
   async update(
     id: string,
     data: Prisma.CategoryUpdateInput
